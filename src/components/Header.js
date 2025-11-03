@@ -18,13 +18,40 @@ const Header = ({
   selectedAlgorithm,
   onAlgorithmChange,
   onRunAlgorithm,
-  isRunningAlgorithm
+  isRunningAlgorithm,
+  onOpenParameters
 }) => {
+  // Check if the selected algorithm supports parameters (TorchBCI Algorithm)
+  const selectedAlgo = algorithms?.find(a => a.name === selectedAlgorithm);
+  const showParametersButton = selectedAlgo?.name === 'torchbci_jims' && selectedAlgo?.available;
+
   return (
     <div className="header">
       <h1>Spike Visualization Dashboard</h1>
 
       <div className="header-controls">
+        {showParametersButton && (
+          <button
+            className="parameters-button"
+            onClick={onOpenParameters}
+            title="Configure algorithm parameters"
+          >
+            <svg 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 1v6m0 6v6m8.66-13.66l-4.24 4.24m-4.24 4.24L7.34 22.66M23 12h-6m-6 0H1m20.66 8.66l-4.24-4.24m-4.24-4.24L1.34 1.34" />
+            </svg>
+          </button>
+        )}
+
         <div className="view-selector-container">
           <label htmlFor="algorithm-select">Algorithm:</label>
           <select

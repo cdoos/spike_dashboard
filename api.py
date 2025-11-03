@@ -1441,11 +1441,11 @@ def list_spike_sorting_algorithms():
         'requiresRun': False  # Data is already available
     })
     
-    # TorchBCI JimsAlgorithm - requires running
+    # TorchBCI Algorithm - requires running
     if JIMS_AVAILABLE:
         algorithms.append({
             'name': 'torchbci_jims',
-            'displayName': 'TorchBCI JimsAlgorithm',
+            'displayName': 'TorchBCI Algorithm',
             'description': 'Jim\'s spike sorting algorithm with clustering',
             'available': True,
             'requiresRun': True  # Must click Run to generate data
@@ -1453,7 +1453,7 @@ def list_spike_sorting_algorithms():
     else:
         algorithms.append({
             'name': 'torchbci_jims',
-            'displayName': 'TorchBCI JimsAlgorithm',
+            'displayName': 'TorchBCI Algorithm',
             'description': 'Jim\'s spike sorting algorithm (not installed)',
             'available': False,
             'requiresRun': True
@@ -1473,46 +1473,79 @@ def run_spike_sorting():
         return jsonify({'error': 'No dataset loaded'}), 400
     
     try:
+        # Get parameters from request body (or use defaults)
+        request_data = request.get_json() or {}
+        params = request_data.get('parameters', {})
+        
+        # Default parameters
+        window_size = params.get('window_size', 3)
+        threshold = params.get('threshold', 36)
+        frame_size = params.get('frame_size', 13)
+        normalize = params.get('normalize', 'zscore')
+        sort_by = params.get('sort_by', 'value')
+        leniency_channel = params.get('leniency_channel', 7)
+        leniency_time = params.get('leniency_time', 32)
+        similarity_mode = params.get('similarity_mode', 'cosine')
+        outlier_threshold = params.get('outlier_threshold', 0.8)
+        n_clusters = params.get('n_clusters', 8)
+        cluster_feature_size = params.get('cluster_feature_size', 7)
+        n_jims_features = params.get('n_jims_features', 7)
+        pad_value = params.get('pad_value', 0)
+        
         print(f"\n{'='*60}")
-        print(f"Running JimsAlgorithm...")
+        print(f"Running JimsAlgorithm with parameters:")
         print(f"{'='*60}")
         print(f"Data Shape: {data_array.shape}")
         print(f"Data dtype: {data_array.dtype}")
         print(f"Channels: {data_array.shape[0]}")
         print(f"Time Points: {data_array.shape[1]}")
+        print(f"\nAlgorithm Parameters:")
+        print(f"  window_size: {window_size}")
+        print(f"  threshold: {threshold}")
+        print(f"  frame_size: {frame_size}")
+        print(f"  normalize: {normalize}")
+        print(f"  sort_by: {sort_by}")
+        print(f"  leniency_channel: {leniency_channel}")
+        print(f"  leniency_time: {leniency_time}")
+        print(f"  similarity_mode: {similarity_mode}")
+        print(f"  outlier_threshold: {outlier_threshold}")
+        print(f"  n_clusters: {n_clusters}")
+        print(f"  cluster_feature_size: {cluster_feature_size}")
+        print(f"  n_jims_features: {n_jims_features}")
+        print(f"  pad_value: {pad_value}")
         
         # Convert data_array to torch tensor efficiently
         # torch.from_numpy() shares memory with numpy array (no copy!)
         # Only converts dtype if needed
         if data_array.dtype == np.float32:
-            print("Data is already float32, creating torch tensor (zero-copy)...")
+            print("\nData is already float32, creating torch tensor (zero-copy)...")
             data_tensor = torch.from_numpy(np.asarray(data_array))
         elif data_array.dtype == np.float64:
-            print("Converting float64 to float32...")
+            print("\nConverting float64 to float32...")
             data_tensor = torch.from_numpy(np.asarray(data_array)).float()
         else:
-            print(f"Converting {data_array.dtype} to float32...")
+            print(f"\nConverting {data_array.dtype} to float32...")
             # For int16 or other types, we need to convert
             data_tensor = torch.from_numpy(np.asarray(data_array)).float()
         
         print(f"Tensor dtype: {data_tensor.dtype}")
         print(f"Tensor is contiguous: {data_tensor.is_contiguous()}")
         
-        # Create JimsAlgorithm instance with default parameters
+        # Create JimsAlgorithm instance with parameters from frontend
         jims_sort_pipe = JimsAlgorithm(
-            window_size=3,
-            threshold=36,
-            frame_size=13,
-            normalize="zscore",
-            sort_by="value",
-            leniency_channel=7,
-            leniency_time=32,
-            similarity_mode="cosine",
-            outlier_threshold=0.8,
-            n_clusters=8,
-            cluster_feature_size=7,
-            n_jims_features=7,
-            jims_pad_value=0
+            window_size=int(window_size),
+            threshold=int(threshold),
+            frame_size=int(frame_size),
+            normalize=normalize,
+            sort_by=sort_by,
+            leniency_channel=int(leniency_channel),
+            leniency_time=int(leniency_time),
+            similarity_mode=similarity_mode,
+            outlier_threshold=float(outlier_threshold),
+            n_clusters=int(n_clusters),
+            cluster_feature_size=int(cluster_feature_size),
+            n_jims_features=int(n_jims_features),
+            jims_pad_value=int(pad_value)
         )
         
         # Run the algorithm: clusters, centroids, clusters_meta = jims_sort_pipe.forward(data_tensor)

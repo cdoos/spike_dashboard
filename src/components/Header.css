@@ -122,3 +122,33 @@
   background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
 }
 
+.parameters-button {
+  background: rgba(67, 250, 236, 0.1);
+  border: 1px solid rgba(67, 250, 236, 0.3);
+  color: #43faec;
+  padding: 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  width: 36px;
+  height: 36px;
+}
+
+.parameters-button:hover {
+  background: rgba(67, 250, 236, 0.2);
+  border-color: rgba(67, 250, 236, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(67, 250, 236, 0.3);
+}
+
+.parameters-button:active {
+  transform: translateY(0);
+}
+
+.parameters-button svg {
+  display: block;
+}
+

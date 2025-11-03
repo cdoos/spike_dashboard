@@ -6,6 +6,7 @@ import ClusterView from './components/ClusterView';
 import MultiPanelView from './components/MultiPanelView';
 import Upload from './components/Upload';
 import ConfirmDialog from './components/ConfirmDialog';
+import AlgorithmParametersMenu from './components/AlgorithmParametersMenu';
 import LRUCache from './utils/LRUCache';
 import './App.css';
 
@@ -33,6 +34,22 @@ function App() {
   const [selectedAlgorithm, setSelectedAlgorithm] = useState('');
   const [isRunningAlgorithm, setIsRunningAlgorithm] = useState(false);
   const [clusteringResults, setClusteringResults] = useState(null);
+  const [showParametersMenu, setShowParametersMenu] = useState(false);
+  const [algorithmParameters, setAlgorithmParameters] = useState({
+    window_size: 3,
+    threshold: 36,
+    frame_size: 13,
+    normalize: 'zscore',
+    sort_by: 'value',
+    leniency_channel: 7,
+    leniency_time: 32,
+    similarity_mode: 'cosine',
+    outlier_threshold: 0.8,
+    n_clusters: 8,
+    cluster_feature_size: 7,
+    n_jims_features: 7,
+    pad_value: 0
+  });
 
   const dataCache = React.useRef(new LRUCache(50));
 
@@ -148,6 +165,7 @@ function App() {
     console.log('Starting JimsAlgorithm...');
     console.log(`${'='.repeat(60)}`);
     console.log('Running on entire loaded dataset...');
+    console.log('Parameters:', algorithmParameters);
 
     try {
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -156,7 +174,9 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({
+          parameters: algorithmParameters
+        })
       });
 
       if (response.ok) {
@@ -190,6 +210,19 @@ function App() {
     } finally {
       setIsRunningAlgorithm(false);
     }
+  };
+
+  const handleOpenParameters = () => {
+    setShowParametersMenu(true);
+  };
+
+  const handleCloseParameters = () => {
+    setShowParametersMenu(false);
+  };
+
+  const handleSaveParameters = (newParameters) => {
+    setAlgorithmParameters(newParameters);
+    console.log('Algorithm parameters updated:', newParameters);
   };
 
   const fetchDatasetInfo = async () => {
@@ -496,6 +529,7 @@ function App() {
         onAlgorithmChange={handleAlgorithmChange}
         onRunAlgorithm={handleRunAlgorithm}
         isRunningAlgorithm={isRunningAlgorithm}
+        onOpenParameters={handleOpenParameters}
       />
       <div className="main-container">
         {selectedView === 'multipanel' ? (
@@ -566,6 +600,12 @@ function App() {
         }}
         confirmText="Delete"
         cancelText="Cancel"
+      />
+      <AlgorithmParametersMenu
+        isOpen={showParametersMenu}
+        onClose={handleCloseParameters}
+        parameters={algorithmParameters}
+        onSave={handleSaveParameters}
       />
     </div>
   );

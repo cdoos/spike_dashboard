@@ -1,0 +1,179 @@
+.algorithm-params-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+
+.algorithm-params-menu {
+  background: linear-gradient(135deg, #1e2a3a 0%, #2a3e52 100%);
+  border-radius: 12px;
+  width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(67, 250, 236, 0.2);
+}
+
+.params-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(67, 250, 236, 0.2);
+}
+
+.params-header h3 {
+  margin: 0;
+  color: #43faec;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #a8b2c1;
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.close-button:hover {
+  color: #43faec;
+  background-color: rgba(67, 250, 236, 0.1);
+}
+
+.params-content {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.param-group {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.param-group label {
+  color: #a8b2c1;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.param-group input[type="number"],
+.param-group select {
+  background-color: rgba(26, 36, 50, 0.6);
+  border: 1px solid rgba(67, 250, 236, 0.3);
+  border-radius: 6px;
+  padding: 0.625rem 0.875rem;
+  color: #e4ecf4;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.param-group input[type="number"]:focus,
+.param-group select:focus {
+  outline: none;
+  border-color: #43faec;
+  box-shadow: 0 0 0 3px rgba(67, 250, 236, 0.1);
+}
+
+.param-group input[type="number"]:hover,
+.param-group select:hover {
+  border-color: rgba(67, 250, 236, 0.5);
+}
+
+.params-footer {
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid rgba(67, 250, 236, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.reset-button,
+.cancel-button,
+.save-button {
+  padding: 0.625rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.reset-button {
+  background-color: rgba(255, 107, 107, 0.1);
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.3);
+}
+
+.reset-button:hover {
+  background-color: rgba(255, 107, 107, 0.2);
+  border-color: rgba(255, 107, 107, 0.5);
+}
+
+.cancel-button {
+  background-color: rgba(168, 178, 193, 0.1);
+  color: #a8b2c1;
+  border-color: rgba(168, 178, 193, 0.3);
+}
+
+.cancel-button:hover {
+  background-color: rgba(168, 178, 193, 0.2);
+  border-color: rgba(168, 178, 193, 0.5);
+}
+
+.save-button {
+  background-color: #43faec;
+  color: #0f1419;
+  border-color: #43faec;
+}
+
+.save-button:hover {
+  background-color: #5ffef0;
+  box-shadow: 0 4px 12px rgba(67, 250, 236, 0.3);
+}
+
+/* Scrollbar styling for params content */
+.params-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.params-content::-webkit-scrollbar-track {
+  background: rgba(26, 36, 50, 0.4);
+  border-radius: 4px;
+}
+
+.params-content::-webkit-scrollbar-thumb {
+  background: rgba(67, 250, 236, 0.3);
+  border-radius: 4px;
+}
+
+.params-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(67, 250, 236, 0.5);
+}
+

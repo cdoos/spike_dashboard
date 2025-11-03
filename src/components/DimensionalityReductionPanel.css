@@ -1,0 +1,42 @@
+.dimensionality-reduction-panel {
+  background: rgba(30, 30, 60, 0.6);
+  border-radius: 8px;
+  padding: 1rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dim-reduction-header {
+  margin-bottom: 0.5rem;
+  border-bottom: 2px solid rgba(64, 224, 208, 0.3);
+  padding-bottom: 0.5rem;
+}
+
+.dim-reduction-header h3 {
+  margin: 0;
+  color: #40e0d0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.dim-reduction-plot-container {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+.no-data-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: rgba(224, 230, 237, 0.5);
+  font-style: italic;
+}
+
+.no-data-message p {
+  margin: 0;
+  font-size: 0.95rem;
+}

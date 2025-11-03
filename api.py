@@ -3,9 +3,22 @@ from flask_cors import CORS
 import numpy as np
 import json
 import os
+import sys
 from werkzeug.utils import secure_filename
 import torch
 from scipy.signal import butter, filtfilt
+
+# Add torchbci folder to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'torchbci'))
+
+# Try to import JimsAlgorithm from local torchbci folder
+try:
+    from torchbci.algorithms import JimsAlgorithm
+    JIMS_AVAILABLE = True
+    print("✓ Successfully imported JimsAlgorithm from local torchbci folder")
+except ImportError as e:
+    JIMS_AVAILABLE = False
+    print(f"Warning: torchbci not available. Error: {e}")
 
 app = Flask(__name__)
 CORS(app)
@@ -24,6 +37,9 @@ nrows = 385
 current_dataset = 'c46_data_5percent.pt'
 spike_times_data = None
 dataset_label_mapping = {}
+
+# Clustering results storage
+clustering_results = None  # Will store combined clustering data per cluster
 
 def load_mapping_database():
     """Load the dataset-to-label mapping database"""
@@ -222,57 +238,116 @@ def load_binary_data(filename=None):
         file_ext = os.path.splitext(filename)[1].lower()
         
         if file_ext == '.pt':
-            # Check for memory-mapped version first (optimization)
-            npy_path = dataset_path.replace('.pt', '_mmap.npy')
-            shape_path = dataset_path.replace('.pt', '_shape.txt')
+            # Check for float32 version first (fastest option)
+            float32_path = dataset_path.replace('.pt', '_float32.npy')
             
-            if os.path.exists(npy_path) and os.path.exists(shape_path):
-                print(f"🚀 Loading memory-mapped array from {npy_path}")
-                with open(shape_path, 'r') as f:
-                    shape = tuple(map(int, f.read().strip().split(',')))
-                data_array = np.memmap(npy_path, dtype=np.int16, mode='r', shape=shape)
+            if os.path.exists(float32_path):
+                print(f"🚀 Found preprocessed float32 file: {float32_path}")
+                print("Loading as memmap (efficient, no disk thrashing)...")
+                data_array = np.load(float32_path, allow_pickle=True, mmap_mode='r')
+                print(f"✓ Loaded float32 memmap: {data_array.shape}, dtype: {data_array.dtype}")
                 nrows = data_array.shape[0]
                 current_dataset = filename
-                print(f"✓ Memory-mapped data loaded: {data_array.shape}, channels: {nrows}")
-                print(f"💾 Memory usage: Minimal (~only accessed pages)")
             else:
-                print(f"Loading PyTorch tensor from {dataset_path}")
-                print(f"⚠️  WARNING: Loading full {os.path.getsize(dataset_path)/(1024**3):.2f} GB into RAM")
-                print(f"💡 TIP: Convert to memory-mapped format to eliminate disk I/O:")
-                print(f"    python convert_pt_to_mmap.py {dataset_path}")
+                # Check for memory-mapped version (int16)
+                npy_path = dataset_path.replace('.pt', '_mmap.npy')
+                shape_path = dataset_path.replace('.pt', '_shape.txt')
                 
-                tensor_data = torch.load(dataset_path, weights_only=False)
-                
-                if torch.is_tensor(tensor_data):
-                    data_array = tensor_data.numpy()
-                elif isinstance(tensor_data, np.ndarray):
-                    data_array = tensor_data
+                if os.path.exists(npy_path) and os.path.exists(shape_path):
+                    print(f"🚀 Loading memory-mapped array from {npy_path}")
+                    with open(shape_path, 'r') as f:
+                        shape = tuple(map(int, f.read().strip().split(',')))
+                    data_array = np.memmap(npy_path, dtype=np.int16, mode='r', shape=shape)
+                    nrows = data_array.shape[0]
+                    current_dataset = filename
+                    print(f"✓ Memory-mapped data loaded: {data_array.shape}, channels: {nrows}")
+                    print(f"💾 Memory usage: Minimal (~only accessed pages)")
+                    print(f"💡 TIP: Convert to float32 for better JimsAlgorithm performance:")
+                    print(f"    python convert_to_float32.py")
                 else:
-                    print(f"Error: Unexpected data type in .pt file: {type(tensor_data)}")
-                    return None
+                    print(f"Loading PyTorch tensor from {dataset_path}")
+                    print(f"⚠️  WARNING: Loading full {os.path.getsize(dataset_path)/(1024**3):.2f} GB into RAM")
+                    print(f"💡 TIP: Convert to float32 for best performance:")
+                    print(f"    python convert_to_float32.py")
+                    
+                    tensor_data = torch.load(dataset_path, weights_only=False)
+                    
+                    if torch.is_tensor(tensor_data):
+                        data_array = tensor_data.numpy()
+                    elif isinstance(tensor_data, np.ndarray):
+                        data_array = tensor_data
+                    else:
+                        print(f"Error: Unexpected data type in .pt file: {type(tensor_data)}")
+                        return None
+                    
+                    if data_array.ndim == 2:
+                        if data_array.shape[0] > data_array.shape[1]:
+                            print(f"Transposing data from {data_array.shape} to ({data_array.shape[1]}, {data_array.shape[0]})")
+                            data_array = data_array.T
+                    else:
+                        print(f"Error: Expected 2D array, got shape: {data_array.shape}")
+                        return None
+                    
+                    nrows = data_array.shape[0]
+                    current_dataset = filename
+                    print(f"Loaded PyTorch data from {dataset_path} with shape: {data_array.shape}, channels: {nrows}")
+            
+            load_spike_times(filename)
+            
+            return data_array
+        elif file_ext == '.npy':
+            # Handle .npy files - check for float32 version
+            if '_float32.npy' in filename:
+                # Already loading the float32 version
+                print(f"Loading float32 numpy memmap from {dataset_path}")
+                data_array = np.load(dataset_path, allow_pickle=True, mmap_mode='r')
+                print(f"Loaded float32 memmap: {data_array.shape}, dtype: {data_array.dtype}")
+            else:
+                # Check if float32 version exists
+                float32_path = dataset_path.replace('.npy', '_float32.npy')
                 
-                if data_array.ndim == 2:
-                    if data_array.shape[0] > data_array.shape[1]:
-                        print(f"Transposing data from {data_array.shape} to ({data_array.shape[1]}, {data_array.shape[0]})")
-                        data_array = data_array.T
+                if os.path.exists(float32_path):
+                    print(f"Found preprocessed float32 file: {float32_path}")
+                    print("Loading as memmap (efficient, no disk thrashing)...")
+                    data_array = np.load(float32_path, allow_pickle=True, mmap_mode='r')
+                    print(f"Loaded float32 memmap with shape: {data_array.shape}, dtype: {data_array.dtype}")
                 else:
-                    print(f"Error: Expected 2D array, got shape: {data_array.shape}")
-                    return None
-                
-                nrows = data_array.shape[0]
-                current_dataset = filename
-                print(f"Loaded PyTorch data from {dataset_path} with shape: {data_array.shape}, channels: {nrows}")
+                    print(f"Loading numpy memmap from {dataset_path}")
+                    data_array = np.load(dataset_path, allow_pickle=True, mmap_mode='r')
+                    print(f"Loaded memmap: {data_array.shape}, dtype: {data_array.dtype}")
+                    
+                    if data_array.dtype != np.float32:
+                        print(f"💡 TIP: Convert to float32 for better performance with JimsAlgorithm:")
+                        print(f"    python convert_to_float32.py")
+            
+            nrows = data_array.shape[0]
+            current_dataset = filename
+            
+            print(f"Loaded numpy data from {dataset_path} with shape: {data_array.shape}, channels: {nrows}")
             
             load_spike_times(filename)
             
             return data_array
         else:
+            # Handle .bin and other binary files
             binary_nrows = 385
-            data_memmap = np.memmap(dataset_path, dtype=np.int16, mode='r')
-            print(f"Binary file size: {data_memmap.shape}, reshaping with {binary_nrows} channels")
-            data_array = data_memmap.reshape((-1, binary_nrows)).T
             
-            nrows = binary_nrows
+            # Check if float32 preprocessed version exists
+            float32_path = dataset_path.replace('.bin', '_float32.npy')
+            
+            if os.path.exists(float32_path):
+                print(f"Found preprocessed float32 file: {float32_path}")
+                print("Loading as memmap (efficient, no disk thrashing)...")
+                data_array = np.load(float32_path, allow_pickle=True, mmap_mode='r')
+                print(f"Loaded float32 memmap with shape: {data_array.shape}, dtype: {data_array.dtype}")
+            else:
+                print(f"No float32 file found. Loading int16 binary...")
+                print(f"Tip: Run convert_to_float32.py to preprocess for better performance!")
+                data_memmap = np.memmap(dataset_path, dtype=np.int16, mode='r')
+                print(f"Binary file size: {data_memmap.shape}, reshaping with {binary_nrows} channels")
+                data_array = data_memmap.reshape((-1, binary_nrows)).T
+            
+            nrows = data_array.shape[0]
             current_dataset = filename
             
             print(f"Loaded binary data from {dataset_path} with shape: {data_array.shape}, channels: {nrows}")
@@ -1053,6 +1128,10 @@ def get_spike_preview():
         window = data.get('window', 10)
         filter_type = data.get('filterType', 'highpass')
         point_index = data.get('pointIndex', 0)  # For reference only
+        algorithm = data.get('algorithm', 'unknown')  # Track which algorithm
+        mode = data.get('mode', 'unknown')  # Track which mode
+        
+        print(f"[{algorithm}/{mode}] Spike preview request - Time: {spike_time}, Channel: {channel_id}")
         
         if spike_time is None:
             return jsonify({'error': 'No spike time provided'}), 400
@@ -1105,18 +1184,510 @@ def get_spike_preview():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/cluster-statistics', methods=['POST'])
+def get_cluster_statistics():
+    """Get statistics for specified clusters (ISI violation, spike count, peak channel, probe position)"""
+    global spike_times_data, clustering_results
+
+    try:
+        data = request.get_json()
+        cluster_ids = data.get('clusterIds', [])
+        algorithm = data.get('algorithm', 'preprocessed_kilosort')
+        
+        print(f"[{algorithm}] Cluster statistics request for clusters: {cluster_ids}")
+
+        if not cluster_ids:
+            return jsonify({'statistics': {}})
+
+        statistics = {}
+        
+        # Use TorchBCI JimsAlgorithm results if available
+        if algorithm == 'torchbci_jims' and clustering_results is not None:
+            print(f"Using TorchBCI JimsAlgorithm clustering results for statistics")
+            
+            for cluster_id in cluster_ids:
+                if cluster_id >= len(clustering_results):
+                    continue
+                    
+                cluster_spikes = clustering_results[cluster_id]
+                
+                # Extract spike times
+                spike_times_samples = [spike['time'] for spike in cluster_spikes]
+                spike_times_secs = np.array(spike_times_samples) / 30000.0  # Convert to seconds
+                
+                # Calculate ISI violations (spikes within 2ms = 0.002s)
+                if len(spike_times_secs) > 1:
+                    sorted_times = np.sort(spike_times_secs)
+                    isis = np.diff(sorted_times)
+                    isi_violations = np.sum(isis < 0.002)
+                    isi_violation_rate = isi_violations / len(isis) if len(isis) > 0 else 0
+                else:
+                    isi_violation_rate = 0
+                
+                # Number of spikes
+                num_spikes = len(cluster_spikes)
+                
+                # Peak channel (most common channel in cluster)
+                channels = [spike['channel'] for spike in cluster_spikes]
+                peak_channel = max(set(channels), key=channels.count) if channels else 181
+                
+                # PCA position (mean of x, y)
+                mean_x = np.mean([spike['x'] for spike in cluster_spikes]) if cluster_spikes else 0
+                mean_y = np.mean([spike['y'] for spike in cluster_spikes]) if cluster_spikes else 0
+                
+                statistics[cluster_id] = {
+                    'isiViolationRate': float(isi_violation_rate),
+                    'numSpikes': num_spikes,
+                    'peakChannel': int(peak_channel),
+                    'probePosition': {
+                        'x': int(round(mean_x)),
+                        'y': int(round(mean_y))
+                    }
+                }
+            
+            return jsonify({'statistics': statistics})
+        
+        # Otherwise use preprocessed Kilosort data
+        cluster_file = os.path.join(LABELS_FOLDER, 'spikes_xyclu_time.npy')
+        if not os.path.exists(cluster_file):
+            cluster_file = os.path.join(LABELS_FOLDER, 'spikes_xyclu_time 1.npy')
+            if not os.path.exists(cluster_file):
+                return jsonify({'error': 'Cluster data file not found'}), 404
+
+        spikes_arr = np.load(cluster_file)
+        xy_coordinates = spikes_arr[:, :2]
+        all_cluster_ids = spikes_arr[:, 2].astype(np.int64)
+        times_secs = spikes_arr[:, 3]
+
+        for cluster_id in cluster_ids:
+            mask = all_cluster_ids == cluster_id
+            cluster_times = times_secs[mask]
+            cluster_xy = xy_coordinates[mask]
+
+            # Calculate ISI violations (spikes within 2ms = 0.002s)
+            if len(cluster_times) > 1:
+                sorted_times = np.sort(cluster_times)
+                isis = np.diff(sorted_times)
+                isi_violations = np.sum(isis < 0.002)
+                isi_violation_rate = isi_violations / len(isis) if len(isis) > 0 else 0
+            else:
+                isi_violation_rate = 0
+
+            # Number of spikes
+            num_spikes = len(cluster_times)
+
+            # Peak channel (inferred from probe position - simplified)
+            mean_x = float(np.mean(cluster_xy[:, 0])) if len(cluster_xy) > 0 else 0
+            mean_y = float(np.mean(cluster_xy[:, 1])) if len(cluster_xy) > 0 else 0
+
+            # Estimate peak channel from position (simplified mapping)
+            peak_channel = int(182 + (mean_x / 10) * 20)  # Simple heuristic
+
+            statistics[cluster_id] = {
+                'isiViolationRate': float(isi_violation_rate),
+                'numSpikes': int(num_spikes),
+                'peakChannel': peak_channel,
+                'probePosition': {
+                    'x': int(round(mean_x)),
+                    'y': int(round(mean_y))
+                }
+            }
+
+        return jsonify({'statistics': statistics})
+
+    except Exception as e:
+        print(f"Error getting cluster statistics: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cluster-waveforms', methods=['POST'])
+def get_cluster_waveforms():
+    """Get waveforms for specified clusters"""
+    global data_array, clustering_results
+
+    try:
+        data = request.get_json()
+        cluster_ids = data.get('clusterIds', [])
+        max_waveforms = data.get('maxWaveforms', 100)  # Limit number of waveforms per cluster
+        window_size = data.get('windowSize', 30)  # samples before/after spike
+        algorithm = data.get('algorithm', 'preprocessed_kilosort')
+        
+        print(f"[{algorithm}] Cluster waveforms request for clusters: {cluster_ids}")
+
+        if not cluster_ids or data_array is None:
+            return jsonify({'waveforms': {}})
+
+        waveforms_data = {}
+        
+        # Use TorchBCI JimsAlgorithm results if available
+        if algorithm == 'torchbci_jims' and clustering_results is not None:
+            print(f"Using TorchBCI JimsAlgorithm clustering results for waveforms")
+            
+            for cluster_id in cluster_ids:
+                if cluster_id >= len(clustering_results):
+                    continue
+                    
+                cluster_spikes = clustering_results[cluster_id]
+                
+                # Limit number of waveforms
+                if len(cluster_spikes) > max_waveforms:
+                    indices = np.random.choice(len(cluster_spikes), max_waveforms, replace=False)
+                    selected_spikes = [cluster_spikes[i] for i in indices]
+                else:
+                    selected_spikes = cluster_spikes
+                
+                waveforms = []
+                for spike in selected_spikes:
+                    spike_time = spike['time']
+                    channel = spike['channel']
+                    channel_idx = channel - 1
+                    
+                    start_idx = max(0, int(spike_time) - window_size)
+                    end_idx = min(data_array.shape[1], int(spike_time) + window_size)
+                    
+                    if start_idx < end_idx and 0 <= channel_idx < data_array.shape[0]:
+                        waveform = data_array[channel_idx, start_idx:end_idx].astype(float)
+                        
+                        # Z-score normalize
+                        if len(waveform) > 0:
+                            mean = np.mean(waveform)
+                            std = np.std(waveform)
+                            if std > 0:
+                                waveform = (waveform - mean) / std
+                        
+                        # Create time points in milliseconds
+                        time_points = [(i - window_size) / 30.0 for i in range(len(waveform))]
+                        
+                        waveforms.append({
+                            'timePoints': time_points,
+                            'amplitude': waveform.tolist()
+                        })
+                
+                waveforms_data[cluster_id] = waveforms
+            
+            return jsonify({'waveforms': waveforms_data})
+        
+        # Otherwise use preprocessed Kilosort data
+        cluster_file = os.path.join(LABELS_FOLDER, 'spikes_xyclu_time.npy')
+        if not os.path.exists(cluster_file):
+            cluster_file = os.path.join(LABELS_FOLDER, 'spikes_xyclu_time 1.npy')
+            if not os.path.exists(cluster_file):
+                return jsonify({'error': 'Cluster data file not found'}), 404
+
+        spikes_arr = np.load(cluster_file)
+        all_cluster_ids = spikes_arr[:, 2].astype(np.int64)
+        times_secs = spikes_arr[:, 3]
+        sampling_frequency = 30000
+        times_indices = (times_secs * sampling_frequency).astype(np.int64)
+
+        for cluster_id in cluster_ids:
+            mask = all_cluster_ids == cluster_id
+            cluster_times = times_indices[mask]
+
+            # Limit number of waveforms
+            if len(cluster_times) > max_waveforms:
+                indices = np.random.choice(len(cluster_times), max_waveforms, replace=False)
+                cluster_times = cluster_times[indices]
+
+            # Get peak channel (simplified - use channel 181 for now)
+            peak_channel = 181
+            channel_idx = peak_channel - 1
+
+            waveforms = []
+            for spike_time in cluster_times:
+                start_idx = max(0, int(spike_time) - window_size)
+                end_idx = min(data_array.shape[1], int(spike_time) + window_size)
+
+                if start_idx < end_idx:
+                    waveform = data_array[channel_idx, start_idx:end_idx].astype(float)
+
+                    # Z-score normalize
+                    if len(waveform) > 0:
+                        mean = np.mean(waveform)
+                        std = np.std(waveform)
+                        if std > 0:
+                            waveform = (waveform - mean) / std
+
+                    # Create time points in milliseconds
+                    time_points = [(i - window_size) / 30.0 for i in range(len(waveform))]  # Convert to ms
+
+                    waveforms.append({
+                        'timePoints': time_points,
+                        'amplitude': waveform.tolist()
+                    })
+
+            waveforms_data[cluster_id] = waveforms
+
+        return jsonify({'waveforms': waveforms_data})
+
+    except Exception as e:
+        print(f"Error getting cluster waveforms: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spike-sorting/algorithms', methods=['GET'])
+def list_spike_sorting_algorithms():
+    """List all available spike sorting algorithms"""
+    algorithms = []
+    
+    # Preprocessed Kilosort - always available (uses existing cluster data)
+    algorithms.append({
+        'name': 'preprocessed_kilosort',
+        'displayName': 'Preprocessed Kilosort',
+        'description': 'Pre-computed cluster data from Kilosort',
+        'available': True,
+        'requiresRun': False  # Data is already available
+    })
+    
+    # TorchBCI JimsAlgorithm - requires running
+    if JIMS_AVAILABLE:
+        algorithms.append({
+            'name': 'torchbci_jims',
+            'displayName': 'TorchBCI JimsAlgorithm',
+            'description': 'Jim\'s spike sorting algorithm with clustering',
+            'available': True,
+            'requiresRun': True  # Must click Run to generate data
+        })
+    else:
+        algorithms.append({
+            'name': 'torchbci_jims',
+            'displayName': 'TorchBCI JimsAlgorithm',
+            'description': 'Jim\'s spike sorting algorithm (not installed)',
+            'available': False,
+            'requiresRun': True
+        })
+    
+    return jsonify({'algorithms': algorithms})
+
+@app.route('/api/spike-sorting/run', methods=['POST'])
+def run_spike_sorting():
+    """Run JimsAlgorithm spike sorting on the entire loaded dataset"""
+    global data_array
+    
+    if not JIMS_AVAILABLE:
+        return jsonify({'error': 'TorchBCI not available. Please install torchbci package.'}), 400
+    
+    if data_array is None:
+        return jsonify({'error': 'No dataset loaded'}), 400
+    
+    try:
+        print(f"\n{'='*60}")
+        print(f"Running JimsAlgorithm...")
+        print(f"{'='*60}")
+        print(f"Data Shape: {data_array.shape}")
+        print(f"Data dtype: {data_array.dtype}")
+        print(f"Channels: {data_array.shape[0]}")
+        print(f"Time Points: {data_array.shape[1]}")
+        
+        # Convert data_array to torch tensor efficiently
+        # torch.from_numpy() shares memory with numpy array (no copy!)
+        # Only converts dtype if needed
+        if data_array.dtype == np.float32:
+            print("Data is already float32, creating torch tensor (zero-copy)...")
+            data_tensor = torch.from_numpy(np.asarray(data_array))
+        elif data_array.dtype == np.float64:
+            print("Converting float64 to float32...")
+            data_tensor = torch.from_numpy(np.asarray(data_array)).float()
+        else:
+            print(f"Converting {data_array.dtype} to float32...")
+            # For int16 or other types, we need to convert
+            data_tensor = torch.from_numpy(np.asarray(data_array)).float()
+        
+        print(f"Tensor dtype: {data_tensor.dtype}")
+        print(f"Tensor is contiguous: {data_tensor.is_contiguous()}")
+        
+        # Create JimsAlgorithm instance with default parameters
+        jims_sort_pipe = JimsAlgorithm(
+            window_size=3,
+            threshold=36,
+            frame_size=13,
+            normalize="zscore",
+            sort_by="value",
+            leniency_channel=7,
+            leniency_time=32,
+            similarity_mode="cosine",
+            outlier_threshold=0.8,
+            n_clusters=8,
+            cluster_feature_size=7,
+            n_jims_features=7,
+            jims_pad_value=0
+        )
+        
+        # Run the algorithm: clusters, centroids, clusters_meta = jims_sort_pipe.forward(data_tensor)
+        print("Running jims_sort_pipe.forward(data_tensor)...")
+        clusters, centroids, clusters_meta = jims_sort_pipe.forward(data_tensor)
+        
+        # Process results
+        n_clustered_spikes = sum([len(meta) for meta in clusters_meta])
+        
+        print(f"\n{'='*60}")
+        print(f"JimsAlgorithm Results:")
+        print(f"{'='*60}")
+        print(f"Number of clusters: {len(clusters)}")
+        print(f"Number of detected spikes: {n_clustered_spikes}")
+        
+        # Print cluster info
+        for i, (cluster, centroid, meta) in enumerate(zip(clusters, centroids, clusters_meta)):
+            print(f"\nCluster {i}:")
+            print(f"  Spikes: {len(meta)}")
+            print(f"  Centroid shape: {centroid.shape}")
+            if len(meta) > 0:
+                print(f"  First spike meta: {meta[0]}")  # (channel, time)
+        
+        print(f"{'='*60}\n")
+
+        centroids_picked = []
+        clusters_meta_picked = []
+        clusters_picked = []
+
+        n_clustered_spikes = sum([len(meta) for meta in clusters_meta])
+        print(f"Number of detected spikes: {n_clustered_spikes}")
+        
+        # Keep all clusters (no filtering)
+        for cluster, centroid, meta in zip(clusters, centroids, clusters_meta):
+            meta = sorted(meta, key=lambda x: x[1])
+            centroids_picked.append(centroid)
+            clusters_meta_picked.append(meta)
+            clusters_picked.append(cluster)
+
+        from sklearn.decomposition import PCA
+        pca = PCA(n_components=2)
+        all_clustered_spikes = []
+        
+        # Build concatenated spikes - keep track of cluster boundaries
+        for cluster in clusters_picked:
+            all_clustered_spikes.append(torch.stack(cluster).numpy())
+        
+        all_clustered_spikes = np.concatenate(all_clustered_spikes, axis=0)
+        all_clustered_spikes_pca = pca.fit_transform(all_clustered_spikes)
+        centroids_pca = pca.transform(torch.stack(centroids_picked).numpy())
+        
+        # Split PCA results back into per-cluster structure matching clusters_meta_picked
+        all_clustered_spikes_pca_per_cluster = []
+        start_idx = 0
+        for meta in clusters_meta_picked:
+            cluster_size = len(meta)
+            cluster_pca = all_clustered_spikes_pca[start_idx:start_idx + cluster_size]
+            all_clustered_spikes_pca_per_cluster.append(cluster_pca)
+            start_idx += cluster_size
+
+        print(f"Total spikes after filtering: {all_clustered_spikes.shape[0]}")
+        print(f"PCA shape: {all_clustered_spikes_pca.shape}")
+        print(f"Number of clusters: {len(all_clustered_spikes_pca_per_cluster)}")
+        print(f"Cluster 0 - PCA points: {all_clustered_spikes_pca_per_cluster[0].shape if len(all_clustered_spikes_pca_per_cluster) > 0 else 'None'}")
+        print(f"Cluster 0 - Metadata: {len(clusters_meta_picked[0]) if len(clusters_meta_picked) > 0 else 0} spikes")
+        
+        # Verify alignment
+        assert start_idx == all_clustered_spikes_pca.shape[0], \
+            "PCA points split doesn't match total!"
+        
+        # Combine PCA coordinates and metadata into single structure
+        # Structure: List of clusters, each cluster is a list of dicts with {x, y, channel, time, spikeIndex}
+        global clustering_results
+        clustering_results = []
+        
+        for cluster_idx, (pca_coords, meta_list) in enumerate(zip(all_clustered_spikes_pca_per_cluster, clusters_meta_picked)):
+            cluster_data = []
+            for spike_idx, (pca_point, meta) in enumerate(zip(pca_coords, meta_list)):
+                spike_data = {
+                    'x': float(pca_point[0]),
+                    'y': float(pca_point[1]),
+                    'channel': int(meta[0]),
+                    'time': int(meta[1]),
+                    'spikeIndex': spike_idx  # Index within this cluster
+                }
+                cluster_data.append(spike_data)
+            clustering_results.append(cluster_data)
+        
+        print(f"✓ Stored clustering results: {len(clustering_results)} clusters")
+        
+        # Prepare response
+        response = {
+            'success': True,
+            'dataShape': list(data_tensor.shape),
+            'numClusters': len(clusters),
+            'numSpikes': n_clustered_spikes,
+            'clusters': []
+        }
+        
+        # Add cluster information
+        for i, (cluster, centroid, meta) in enumerate(zip(clusters, centroids, clusters_meta)):
+            cluster_info = {
+                'clusterId': i,
+                'numSpikes': len(meta),
+                'centroidShape': list(centroid.shape),
+                'spikeTimes': [int(m[1]) for m in meta] if len(meta) > 0 else [],
+                'spikeChannels': [int(m[0]) for m in meta] if len(meta) > 0 else []
+            }
+            response['clusters'].append(cluster_info)
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        print(f"Error running JimsAlgorithm: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clustering-results', methods=['GET'])
+def get_clustering_results():
+    """Get the stored clustering results from the last algorithm run"""
+    global clustering_results
+    
+    if clustering_results is None:
+        return jsonify({
+            'available': False,
+            'message': 'No clustering results available. Run the spike sorting algorithm first.'
+        }), 200
+    
+    try:
+        # Prepare summary information
+        cluster_summaries = []
+        for cluster_idx, cluster_data in enumerate(clustering_results):
+            cluster_summaries.append({
+                'clusterId': cluster_idx,
+                'numSpikes': len(cluster_data),
+                'channels': list(set([spike['channel'] for spike in cluster_data])) if cluster_data else [],
+                'timeRange': [
+                    min([spike['time'] for spike in cluster_data]) if cluster_data else 0,
+                    max([spike['time'] for spike in cluster_data]) if cluster_data else 0
+                ] if cluster_data else [0, 0]
+            })
+        
+        return jsonify({
+            'available': True,
+            'numClusters': len(clustering_results),
+            'totalSpikes': sum(len(cluster) for cluster in clustering_results),
+            'clusters': cluster_summaries,
+            'fullData': clustering_results  # All spike data with PCA coords + metadata
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching clustering results: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     print("=" * 60)
     print("Starting Spike Visualizer API...")
     print("=" * 60)
-    
+
     print("\n1. Loading mapping database...")
     load_mapping_database()
     
     print("\n2. Migrating existing labels...")
     migrate_existing_labels()
     
-    print(f"\n3. Loading default dataset: {current_dataset}")
+    print("\n3. Checking TorchBCI availability...")
+    if JIMS_AVAILABLE:
+        print("   ✓ TorchBCI JimsAlgorithm available")
+    else:
+        print("   ✗ TorchBCI not installed")
+    
+    print(f"\n4. Loading default dataset: {current_dataset}")
     load_binary_data()
     
     print(f"\n{'='*60}")

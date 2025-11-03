@@ -2,42 +2,75 @@ import React from 'react';
 import SpikeChannel from './SpikeChannel';
 import './SpikeGrid.css';
 
-const SpikeGrid = ({ spikeData, selectedChannels, channelScrollOffset, timeRange, windowSize, spikeThreshold, onChannelScroll, isLoading, selectedDataType, filteredLineColor, usePrecomputedSpikes, onSpikeNavigation, filterType }) => {
-  const displayChannels = selectedChannels.slice(channelScrollOffset, channelScrollOffset + 3);
+const SpikeGrid = ({ 
+  spikeData, 
+  selectedChannels, 
+  channelScrollOffset, 
+  timeRange, 
+  windowSize, 
+  spikeThreshold, 
+  onChannelScroll, 
+  isLoading, 
+  selectedDataType, 
+  filteredLineColor, 
+  usePrecomputedSpikes, 
+  onSpikeNavigation, 
+  filterType,
+  channelsPerView = 3 // Default to 3 channels for backward compatibility
+}) => {
+  // Calculate which channels to render (render one extra on each side for smooth scrolling)
+  const startIndex = Math.max(0, Math.floor(channelScrollOffset) - 1);
+  const endIndex = Math.min(selectedChannels.length, Math.ceil(channelScrollOffset) + channelsPerView + 1);
+  const channelsToRender = selectedChannels.slice(startIndex, endIndex);
   
-  const gridChannels = Array.from({ length: 3 }, (_, index) => {
-    const channelId = displayChannels[index];
-    return {
-      id: channelId,
-      data: channelId !== undefined ? spikeData[channelId] : null,
-      isActive: channelId !== undefined
-    };
-  });
+  // Calculate the fractional offset for smooth positioning
+  const fractionalOffset = channelScrollOffset - Math.floor(channelScrollOffset);
+  const baseOffset = Math.floor(channelScrollOffset) - startIndex;
+  
+  const maxOffset = Math.max(0, selectedChannels.length - channelsPerView);
 
-  const maxOffset = Math.max(0, selectedChannels.length - 3);
-  const canScrollUp = channelScrollOffset > 0;
-  const canScrollDown = channelScrollOffset < maxOffset;
+  // Handle mouse wheel scrolling
+  const handleWheel = (e) => {
+    e.preventDefault();
+    if (selectedChannels.length <= channelsPerView) return;
+    
+    const delta = e.deltaY > 0 ? 0.5 : -0.5;
+    const newOffset = Math.max(0, Math.min(maxOffset, channelScrollOffset + delta));
+    onChannelScroll(newOffset);
+  };
+
+  // Each channel takes up percentage based on channelsPerView
+  const channelUnitPercentage = 100 / channelsPerView;
 
   return (
     <div className="spike-grid-container">
-      <div className="spike-grid">
-        {gridChannels.map((channel, index) => (
-          <SpikeChannel
-            key={channel.id || `empty-${index}`}
-            channelId={channel.id}
-            data={channel.data}
-            isActive={channel.isActive}
-            timeRange={timeRange}
-            windowSize={windowSize}
-            spikeThreshold={spikeThreshold}
-            isLoading={isLoading}
-            selectedDataType={selectedDataType}
-            filteredLineColor={filteredLineColor}
-            usePrecomputedSpikes={usePrecomputedSpikes}
-            onSpikeNavigation={onSpikeNavigation}
-            filterType={filterType}
-          />
-        ))}
+      <div className="spike-grid" onWheel={handleWheel}>
+        <div 
+          className="spike-grid-scroll-wrapper"
+          data-channels-per-view={channelsPerView}
+          style={{
+            transform: `translateY(-${(baseOffset + fractionalOffset) * channelUnitPercentage}%)`,
+            transition: 'none'
+          }}
+        >
+          {channelsToRender.map((channelId, index) => (
+            <SpikeChannel
+              key={channelId}
+              channelId={channelId}
+              data={spikeData[channelId]}
+              isActive={true}
+              timeRange={timeRange}
+              windowSize={windowSize}
+              spikeThreshold={spikeThreshold}
+              isLoading={isLoading}
+              selectedDataType={selectedDataType}
+              filteredLineColor={filteredLineColor}
+              usePrecomputedSpikes={usePrecomputedSpikes}
+              onSpikeNavigation={onSpikeNavigation}
+              filterType={filterType}
+            />
+          ))}
+        </div>
       </div>
       
       <div className="channel-slider-container">
@@ -46,11 +79,11 @@ const SpikeGrid = ({ spikeData, selectedChannels, channelScrollOffset, timeRange
             className="channel-slider-thumb"
             style={{ 
               top: `calc(${maxOffset > 0 ? (channelScrollOffset / maxOffset) * 100 : 0}% * (100% - 60px) / 100%)`,
-              opacity: selectedChannels.length > 3 ? 1 : 0.3
+              opacity: selectedChannels.length > channelsPerView ? 1 : 0.3
             }}
             onMouseDown={(e) => {
               e.preventDefault();
-              if (selectedChannels.length <= 3) return;
+              if (selectedChannels.length <= channelsPerView) return;
               const rect = e.currentTarget.parentElement.getBoundingClientRect();
               const thumbHeight = 60; // Must match the height in CSS
               const handleMouseMove = (moveEvent) => {
@@ -58,7 +91,7 @@ const SpikeGrid = ({ spikeData, selectedChannels, channelScrollOffset, timeRange
                 const maxY = rect.height - thumbHeight;
                 const clampedY = Math.max(0, Math.min(maxY, y));
                 const percentage = maxY > 0 ? (clampedY / maxY) * 100 : 0;
-                const newOffset = Math.round((percentage / 100) * maxOffset);
+                const newOffset = (percentage / 100) * maxOffset;
                 onChannelScroll(newOffset);
               };
               const handleMouseUp = () => {

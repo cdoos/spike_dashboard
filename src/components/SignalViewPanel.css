@@ -1,0 +1,276 @@
+/* Signal View Panel - Exact copy of VisualizationArea styles, but scaled for panel */
+.signal-view-panel {
+  flex: 1;
+  background: rgba(30, 30, 60, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(64, 224, 208, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.signal-view-panel .viz-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(64, 224, 208, 0.2);
+  flex-shrink: 0;
+}
+
+.signal-view-panel .viz-header h2 {
+  color: #40e0d0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.signal-view-panel .time-controls {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.signal-view-panel .time-controls label {
+  color: rgba(224, 230, 237, 0.7);
+  font-size: 0.75rem;
+}
+
+.signal-view-panel .time-input {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(64, 224, 208, 0.3);
+  border-radius: 4px;
+  color: #e0e6ed;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.75rem;
+  width: 70px;
+}
+
+.signal-view-panel .time-input:focus {
+  outline: none;
+  border-color: #40e0d0;
+  box-shadow: 0 0 0 2px rgba(64, 224, 208, 0.2);
+}
+
+.signal-view-panel .threshold-input {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(64, 224, 208, 0.3);
+  border-radius: 4px;
+  color: #e0e6ed;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.75rem;
+  width: 60px;
+}
+
+.signal-view-panel .threshold-input:focus {
+  outline: none;
+  border-color: #40e0d0;
+  box-shadow: 0 0 0 2px rgba(64, 224, 208, 0.2);
+}
+
+.signal-view-panel .window-input {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(64, 224, 208, 0.3);
+  border-radius: 4px;
+  color: #e0e6ed;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.75rem;
+  width: 70px;
+}
+
+.signal-view-panel .window-input:focus {
+  outline: none;
+  border-color: #40e0d0;
+  box-shadow: 0 0 0 2px rgba(64, 224, 208, 0.2);
+}
+
+.signal-view-panel .data-type-select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(64, 224, 208, 0.3);
+  border-radius: 4px;
+  color: #e0e6ed;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.75rem;
+  width: 160px;
+  cursor: pointer;
+}
+
+.signal-view-panel .data-type-select:focus {
+  outline: none;
+  border-color: #40e0d0;
+  box-shadow: 0 0 0 2px rgba(64, 224, 208, 0.2);
+}
+
+.signal-view-panel .data-type-select option {
+  background: #1a1a2e;
+  color: #e0e6ed;
+}
+
+.signal-view-panel .filter-type-select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(64, 224, 208, 0.3);
+  border-radius: 4px;
+  color: #e0e6ed;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.75rem;
+  width: 150px;
+  cursor: pointer;
+}
+
+.signal-view-panel .filter-type-select:focus {
+  outline: none;
+  border-color: #40e0d0;
+  box-shadow: 0 0 0 2px rgba(64, 224, 208, 0.2);
+}
+
+.signal-view-panel .filter-type-select option {
+  background: #1a1a2e;
+  color: #e0e6ed;
+}
+
+.signal-view-panel .filter-color-select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(64, 224, 208, 0.3);
+  border-radius: 4px;
+  color: #e0e6ed;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.75rem;
+  width: 100px;
+  cursor: pointer;
+}
+
+.signal-view-panel .filter-color-select:focus {
+  outline: none;
+  border-color: #40e0d0;
+  box-shadow: 0 0 0 2px rgba(64, 224, 208, 0.2);
+}
+
+.signal-view-panel .filter-color-select option {
+  background: #1a1a2e;
+  color: #e0e6ed;
+}
+
+.signal-view-panel .invert-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  color: rgba(224, 230, 237, 0.7);
+  font-size: 0.75rem;
+}
+
+.signal-view-panel .invert-checkbox input[type="checkbox"] {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: #40e0d0;
+}
+
+.signal-view-panel .invert-checkbox span {
+  user-select: none;
+}
+
+.signal-view-panel .precomputed-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  color: rgba(94, 234, 212, 0.9);
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(64, 224, 208, 0.2);
+}
+
+.signal-view-panel .precomputed-checkbox input[type="checkbox"] {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: #5eead4;
+}
+
+.signal-view-panel .precomputed-checkbox span {
+  user-select: none;
+  font-weight: 500;
+}
+
+.signal-view-panel .time-controls span {
+  color: rgba(224, 230, 237, 0.5);
+  font-size: 0.75rem;
+}
+
+/* Signal content area with sidebar */
+.signal-view-panel .signal-content {
+  flex: 1;
+  display: flex;
+  gap: 0.5rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Channel sidebar on the left */
+.signal-view-panel .signal-sidebar {
+  flex: 0 0 100px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.signal-view-panel .sidebar-header {
+  padding: 0.5rem;
+  background: rgba(64, 224, 208, 0.1);
+  border-bottom: 1px solid rgba(64, 224, 208, 0.3);
+  font-size: 0.7rem;
+  color: #40e0d0;
+  font-weight: 600;
+  text-align: center;
+}
+
+.signal-view-panel .channel-grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.2rem;
+  padding: 0.4rem;
+  align-content: start;
+}
+
+.signal-view-panel .channel-button {
+  padding: 0.3rem 0.1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(64, 224, 208, 0.2);
+  color: rgba(224, 230, 237, 0.6);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.65rem;
+  transition: all 0.2s ease;
+}
+
+.signal-view-panel .channel-button:hover {
+  background: rgba(64, 224, 208, 0.1);
+  border-color: rgba(64, 224, 208, 0.4);
+}
+
+.signal-view-panel .channel-button.selected {
+  background: rgba(64, 224, 208, 0.2);
+  border-color: #40e0d0;
+  color: #40e0d0;
+  font-weight: 600;
+}
+
+/* Main signal display area */
+.signal-view-panel .signal-main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}

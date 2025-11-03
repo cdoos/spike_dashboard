@@ -3,8 +3,10 @@ import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import VisualizationArea from './components/VisualizationArea';
 import ClusterView from './components/ClusterView';
+import MultiPanelView from './components/MultiPanelView';
 import Upload from './components/Upload';
 import ConfirmDialog from './components/ConfirmDialog';
+import LRUCache from './utils/LRUCache';
 import './App.css';
 
 function App() {
@@ -23,16 +25,21 @@ function App() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [usePrecomputedSpikes, setUsePrecomputedSpikes] = useState(false);
   const [precomputedAvailable, setPrecomputedAvailable] = useState(false);
-  const [selectedView, setSelectedView] = useState('signal'); // 'signal' or 'clusters'
+  const [selectedView, setSelectedView] = useState('multipanel'); // 'signal', 'clusters', or 'multipanel'
   const [selectedDataType, setSelectedDataType] = useState('raw'); // 'raw', 'filtered', or 'spikes'
   const [filterType, setFilterType] = useState('highpass'); // 'none', 'highpass', 'lowpass', 'bandpass', 'bandstop'
   const [filteredLineColor, setFilteredLineColor] = useState('#FFD700'); // Color for filtered data line
+  const [algorithms, setAlgorithms] = useState([]);
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState('');
+  const [isRunningAlgorithm, setIsRunningAlgorithm] = useState(false);
+  const [clusteringResults, setClusteringResults] = useState(null);
 
-  const dataCache = React.useRef({});
+  const dataCache = React.useRef(new LRUCache(50));
 
   useEffect(() => {
     const initializeApp = async () => {
       await fetchDatasets();
+      await fetchAlgorithms();
       // Load c46 dataset by default on initial mount
       await handleDatasetChange('c46_data_5percent.pt');
     };
@@ -41,7 +48,7 @@ function App() {
 
   useEffect(() => {
     if (selectedChannels.length > 0) {
-      dataCache.current = {};
+      dataCache.current.clear();
       fetchSpikeData();
     }
   }, [selectedChannels, spikeThreshold, invertData, usePrecomputedSpikes, selectedDataType, filterType]);
@@ -79,6 +86,109 @@ function App() {
       }
     } catch (error) {
       console.error('Error fetching datasets:', error);
+    }
+  };
+
+  const fetchAlgorithms = async () => {
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/spike-sorting/algorithms`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Available algorithms:', data);
+        setAlgorithms(data.algorithms || []);
+        // Select first available algorithm by default
+        const firstAvailable = data.algorithms?.find(a => a.available);
+        if (firstAvailable) {
+          setSelectedAlgorithm(firstAvailable.name);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching algorithms:', error);
+    }
+  };
+
+  const handleAlgorithmChange = (algorithmName) => {
+    setSelectedAlgorithm(algorithmName);
+  };
+
+  const fetchClusteringResults = async () => {
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/clustering-results`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.available) {
+          setClusteringResults(data);
+          console.log('✓ Clustering results loaded:', data.numClusters, 'clusters,', data.totalSpikes, 'spikes');
+          return data;
+        } else {
+          console.log('No clustering results available yet');
+          setClusteringResults(null);
+          return null;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching clustering results:', error);
+      setClusteringResults(null);
+      return null;
+    }
+  };
+
+  const handleRunAlgorithm = async () => {
+    if (!selectedAlgorithm || isRunningAlgorithm) {
+      console.warn('Cannot run algorithm: missing requirements');
+      return;
+    }
+
+    setIsRunningAlgorithm(true);
+    console.log(`\n${'='.repeat(60)}`);
+    console.log('Starting JimsAlgorithm...');
+    console.log(`${'='.repeat(60)}`);
+    console.log('Running on entire loaded dataset...');
+
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/spike-sorting/run`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('\n' + '='.repeat(60));
+        console.log('JimsAlgorithm COMPLETED!');
+        console.log('='.repeat(60));
+        console.log('Data Shape:', result.dataShape);
+        console.log('Number of Clusters:', result.numClusters);
+        console.log('Number of Spikes:', result.numSpikes);
+        console.log('\nCluster Details:');
+        result.clusters.forEach((cluster, i) => {
+          console.log(`\nCluster ${cluster.clusterId}:`);
+          console.log(`  Spikes: ${cluster.numSpikes}`);
+          console.log(`  Centroid Shape: ${cluster.centroidShape}`);
+          if (cluster.spikeTimes.length > 0) {
+            console.log(`  First spike time: ${cluster.spikeTimes[0]}`);
+            console.log(`  First spike channel: ${cluster.spikeChannels[0]}`);
+          }
+        });
+        console.log('='.repeat(60) + '\n');
+        
+        // Fetch clustering results to populate the UI
+        await fetchClusteringResults();
+      } else {
+        const error = await response.json();
+        console.error('Error running algorithm:', error);
+      }
+    } catch (error) {
+      console.error('Error running algorithm:', error);
+    } finally {
+      setIsRunningAlgorithm(false);
     }
   };
 
@@ -143,9 +253,9 @@ function App() {
         if (datasetName === 'c46_data_5percent.pt') {
           setSelectedChannels([179, 181, 183]);
         }
-        
-        dataCache.current = {};
-        
+
+        dataCache.current.clear();
+
         // Wait a bit longer for backend to fully load dataset and spike times
         // then check if precomputed spikes are available
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -217,14 +327,14 @@ function App() {
     const buffer = windowSize;
     const fetchStart = Math.max(0, Math.floor(timeRange.start) - buffer);
     const fetchEnd = Math.min(datasetInfo.totalDataPoints, Math.ceil(timeRange.end) + buffer);
-    
+
     const cacheKey = `${fetchStart}-${fetchEnd}-${spikeThreshold}-${invertData}-${usePrecomputedSpikes}-${selectedDataType}-${filterType}`;
-    const needsFetch = selectedChannels.some(ch => !dataCache.current[`${ch}-${cacheKey}`]);
-    
+    const needsFetch = selectedChannels.some(ch => !dataCache.current.has(`${ch}-${cacheKey}`));
+
     if (!needsFetch) {
       const cachedData = {};
       selectedChannels.forEach(ch => {
-        cachedData[ch] = dataCache.current[`${ch}-${cacheKey}`];
+        cachedData[ch] = dataCache.current.get(`${ch}-${cacheKey}`);
       });
       setSpikeData(cachedData);
       return;
@@ -249,16 +359,16 @@ function App() {
           filterType: filterType
         })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        
+
         selectedChannels.forEach(ch => {
           if (data[ch]) {
-            dataCache.current[`${ch}-${cacheKey}`] = data[ch];
+            dataCache.current.set(`${ch}-${cacheKey}`, data[ch]);
           }
         });
-        
+
         setSpikeData(data);
       } else {
         console.error('Failed to fetch spike data');
@@ -381,45 +491,62 @@ function App() {
         onViewChange={setSelectedView}
         selectedSignalType={selectedDataType}
         onSignalTypeChange={setSelectedDataType}
+        algorithms={algorithms}
+        selectedAlgorithm={selectedAlgorithm}
+        onAlgorithmChange={handleAlgorithmChange}
+        onRunAlgorithm={handleRunAlgorithm}
+        isRunningAlgorithm={isRunningAlgorithm}
       />
       <div className="main-container">
-        {selectedView === 'signal' && (
-          <Sidebar
-            selectedChannels={selectedChannels}
-            onChannelToggle={handleChannelToggle}
-          />
-        )}
-        {selectedView === 'clusters' ? (
-          <ClusterView
-            selectedDataset={currentDataset}
-            onNavigateToSpike={handleNavigateToSpike}
+        {selectedView === 'multipanel' ? (
+          <MultiPanelView 
+            selectedDataset={currentDataset} 
+            clusteringResults={clusteringResults}
+            selectedAlgorithm={selectedAlgorithm}
           />
         ) : (
-          <VisualizationArea
-            spikeData={spikeData}
-            selectedChannels={selectedChannels}
-            channelScrollOffset={channelScrollOffset}
-            timeRange={timeRange}
-            windowSize={windowSize}
-            spikeThreshold={spikeThreshold}
-            invertData={invertData}
-            totalDataPoints={datasetInfo.totalDataPoints}
-            onTimeRangeChange={setTimeRange}
-            onWindowSizeChange={handleWindowSizeChange}
-            onChannelScroll={handleChannelScroll}
-            onSpikeThresholdChange={setSpikeThreshold}
-            onInvertDataChange={handleInvertDataChange}
-            isLoading={isLoading}
-            usePrecomputedSpikes={usePrecomputedSpikes}
-            onUsePrecomputedChange={setUsePrecomputedSpikes}
-            precomputedAvailable={precomputedAvailable}
-            selectedDataType={selectedDataType}
-            filterType={filterType}
-            onFilterTypeChange={setFilterType}
-            filteredLineColor={filteredLineColor}
-            onFilteredLineColorChange={setFilteredLineColor}
-            onSpikeNavigation={handleSpikeNavigation}
-          />
+          <>
+            {selectedView === 'signal' && (
+              <Sidebar
+                selectedChannels={selectedChannels}
+                onChannelToggle={handleChannelToggle}
+              />
+            )}
+            {selectedView === 'clusters' ? (
+              <ClusterView
+                selectedDataset={currentDataset}
+                onNavigateToSpike={handleNavigateToSpike}
+                clusteringResults={clusteringResults}
+                selectedAlgorithm={selectedAlgorithm}
+              />
+            ) : selectedView === 'signal' ? (
+              <VisualizationArea
+                spikeData={spikeData}
+                selectedChannels={selectedChannels}
+                channelScrollOffset={channelScrollOffset}
+                timeRange={timeRange}
+                windowSize={windowSize}
+                spikeThreshold={spikeThreshold}
+                invertData={invertData}
+                totalDataPoints={datasetInfo.totalDataPoints}
+                onTimeRangeChange={setTimeRange}
+                onWindowSizeChange={handleWindowSizeChange}
+                onChannelScroll={handleChannelScroll}
+                onSpikeThresholdChange={setSpikeThreshold}
+                onInvertDataChange={handleInvertDataChange}
+                isLoading={isLoading}
+                usePrecomputedSpikes={usePrecomputedSpikes}
+                onUsePrecomputedChange={setUsePrecomputedSpikes}
+                precomputedAvailable={precomputedAvailable}
+                selectedDataType={selectedDataType}
+                filterType={filterType}
+                onFilterTypeChange={setFilterType}
+                filteredLineColor={filteredLineColor}
+                onFilteredLineColorChange={setFilteredLineColor}
+                onSpikeNavigation={handleSpikeNavigation}
+              />
+            ) : null}
+          </>
         )}
       </div>
       {showUploadModal && (

@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import './SpikeChannel.css';
 
 const SpikeChannel = ({ channelId, data, isActive, timeRange, windowSize, spikeThreshold, isLoading, selectedDataType, filteredLineColor, usePrecomputedSpikes, onSpikeNavigation, filterType }) => {
-  const generatePlotData = () => {
+  const plotData = useMemo(() => {
     if (!data || !data.data || !isActive) {
       return {
         data: [{
@@ -195,9 +195,7 @@ const SpikeChannel = ({ channelId, data, isActive, timeRange, windowSize, spikeT
         responsive: true
       }
     };
-  };
-
-  const plotData = generatePlotData();
+  }, [data, isActive, timeRange, selectedDataType, filteredLineColor]);
 
   return (
     <div className={`spike-channel ${!isActive ? 'inactive' : ''}`}>

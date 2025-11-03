@@ -1,0 +1,176 @@
+.multi-panel-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  overflow: hidden;
+}
+
+/* Panel Rows */
+.panel-row {
+  display: flex;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.panel-row-top {
+  flex: 0 0 45%;
+  min-height: 250px;
+}
+
+.panel-row-bottom {
+  flex: 1;
+  min-height: 400px;
+}
+
+/* Individual Panels */
+.panel {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 100px;
+}
+
+.panel-cluster-list {
+  flex: 0 0 180px;
+  min-width: 120px;
+}
+
+.panel-spike-list {
+  flex: 0 0 220px;
+  min-width: 170px;
+}
+
+.panel-cluster-stats {
+  flex: 0.6;
+  min-width: 180px;
+  max-width: 350px;
+}
+
+.panel-signal-view {
+  flex: 2.4;
+  min-width: 350px;
+}
+
+.panel-dim-reduction {
+  flex: 1;
+  min-width: 300px;
+}
+
+.panel-waveform {
+  flex: 1;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Resize Handles */
+.resize-handle {
+  position: absolute;
+  z-index: 10;
+  background: transparent;
+}
+
+.resize-handle:hover {
+  background: rgba(64, 224, 208, 0.3);
+}
+
+.resize-handle.active {
+  background: rgba(64, 224, 208, 0.5);
+}
+
+.resize-handle-vertical {
+  right: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+}
+
+.resize-handle-horizontal {
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+}
+
+/* Waveform View Toggle */
+.waveform-view-toggle {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(30, 30, 60, 0.6);
+  border-bottom: 2px solid rgba(64, 224, 208, 0.3);
+}
+
+.waveform-view-toggle button {
+  padding: 0.5rem 1rem;
+  background: rgba(64, 224, 208, 0.1);
+  border: 1px solid rgba(64, 224, 208, 0.3);
+  border-radius: 4px;
+  color: #e0e6ed;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.waveform-view-toggle button:hover {
+  background: rgba(64, 224, 208, 0.2);
+  border-color: rgba(64, 224, 208, 0.5);
+}
+
+.waveform-view-toggle button.active {
+  background: rgba(64, 224, 208, 0.3);
+  border-color: #40e0d0;
+  color: #40e0d0;
+}
+
+/* Ensure main container fills space */
+.main-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .panel-row-top {
+    flex-direction: column;
+  }
+
+  .panel-row-bottom {
+    flex-direction: column;
+  }
+
+  .panel {
+    min-height: 200px;
+  }
+}
+
+/* Scrollbar styling for all panels */
+.multi-panel-view ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.multi-panel-view ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.multi-panel-view ::-webkit-scrollbar-thumb {
+  background: rgba(64, 224, 208, 0.3);
+  border-radius: 3px;
+}
+
+.multi-panel-view ::-webkit-scrollbar-thumb:hover {
+  background: rgba(64, 224, 208, 0.5);
+}

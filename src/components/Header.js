@@ -13,13 +13,45 @@ const Header = ({
   selectedView,
   onViewChange,
   selectedSignalType,
-  onSignalTypeChange
+  onSignalTypeChange,
+  algorithms,
+  selectedAlgorithm,
+  onAlgorithmChange,
+  onRunAlgorithm,
+  isRunningAlgorithm
 }) => {
   return (
     <div className="header">
       <h1>Spike Visualization Dashboard</h1>
 
       <div className="header-controls">
+        <div className="view-selector-container">
+          <label htmlFor="algorithm-select">Algorithm:</label>
+          <select
+            id="algorithm-select"
+            className="view-selector"
+            value={selectedAlgorithm}
+            onChange={(e) => onAlgorithmChange(e.target.value)}
+            disabled={!algorithms || algorithms.length === 0}
+          >
+            <option value="">Select Algorithm</option>
+            {algorithms && algorithms.map((algo) => (
+              <option key={algo.name} value={algo.name} disabled={!algo.available}>
+                {algo.displayName}{!algo.available ? ' (unavailable)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          className="run-algorithm-button"
+          onClick={onRunAlgorithm}
+          disabled={!selectedAlgorithm || isRunningAlgorithm}
+          title={isRunningAlgorithm ? "Algorithm is running..." : "Run spike sorting algorithm"}
+        >
+          {isRunningAlgorithm ? 'Running...' : 'Run'}
+        </button>
+
         <div className="view-selector-container">
           <label htmlFor="view-select">View:</label>
           <select
@@ -30,6 +62,7 @@ const Header = ({
           >
             <option value="signal">Signal View</option>
             <option value="clusters">Cluster View</option>
+            <option value="multipanel">Multi-Panel View</option>
           </select>
         </div>
 

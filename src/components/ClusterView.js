@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
 import './ClusterView.css';
 
-const ClusterView = ({ selectedDataset, onNavigateToSpike }) => {
+const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, selectedAlgorithm }) => {
   const [clusterData, setClusterData] = useState(null);
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [spikePreview, setSpikePreview] = useState(null);
@@ -11,20 +11,41 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike }) => {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [overlaySpikes, setOverlaySpikes] = useState([]);
   const [isLoadingOverlay, setIsLoadingOverlay] = useState(false);
-  const [mode, setMode] = useState('synthetic'); // 'synthetic' or 'real'
+  const [mode, setMode] = useState('synthetic'); // 'synthetic', 'real', or 'algorithm'
   const [channelMapping, setChannelMapping] = useState({}); // clusterId -> channelId mapping
   const [showChannelMappingModal, setShowChannelMappingModal] = useState(false);
+  const [selectedClusters, setSelectedClusters] = useState([]); // Track which clusters are selected
   const clickTimeoutRef = useRef(null);
   const lastClickRef = useRef(null);
 
+  // Determine which data source to use based on selected algorithm
   useEffect(() => {
-    fetchClusterData();
+    // TorchBCI JimsAlgorithm - only use data if Run button was clicked
+    if (selectedAlgorithm === 'torchbci_jims') {
+      if (clusteringResults && clusteringResults.available) {
+        console.log('Using TorchBCI JimsAlgorithm results');
+        setMode('algorithm');
+        setClusterData(convertClusteringResultsToClusterData(clusteringResults));
+      } else {
+        console.log('Waiting for TorchBCI JimsAlgorithm to run...');
+        setClusterData(null); // Clear any previous data
+      }
+    } 
+    // Preprocessed Kilosort - fetch from API (old behavior)
+    else if (selectedAlgorithm === 'preprocessed_kilosort') {
+      console.log('Using Preprocessed Kilosort data');
+      fetchClusterData();
+    }
+    // Default fallback
+    else {
+      fetchClusterData();
+    }
 
     // Reset channels to default for c46 dataset
     if (selectedDataset === 'c46') {
       setSelectedChannels({ 0: 179, 1: 181, 2: 183 });
     }
-  }, [selectedDataset, mode, channelMapping]);
+  }, [selectedDataset, mode, channelMapping, clusteringResults, selectedAlgorithm]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -41,6 +62,34 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike }) => {
       fetchSpikePreview(hoveredPoint.cluster, hoveredPoint.index);
     }
   }, [filterType]);
+
+  const convertClusteringResultsToClusterData = (results) => {
+    // Convert from backend clustering results format to ClusterView format
+    const clusters = results.fullData.map((clusterSpikes, clusterIdx) => {
+      // For PCA plot: x, y are the PCA coordinates
+      // For spike list/waveforms: we need the actual time and channel from metadata
+      return {
+        x: clusterSpikes.map(spike => spike.x),  // PCA x-coordinate
+        y: clusterSpikes.map(spike => spike.y),  // PCA y-coordinate
+        points: clusterSpikes.map(spike => [spike.x, spike.y]),  // For compatibility
+        spikeTimes: clusterSpikes.map(spike => spike.time),  // Actual spike time in samples
+        spikeChannels: clusterSpikes.map(spike => spike.channel),  // Actual channel number
+        clusterLabel: `Cluster ${clusterIdx}`,
+        clusterId: clusterIdx,
+        size: clusterSpikes.length,
+        pointCount: clusterSpikes.length
+      };
+    });
+
+    console.log(`Converted ${clusters.length} clusters from JimsAlgorithm results`);
+    
+    return {
+      clusters: clusters,
+      numClusters: results.numClusters,
+      totalSpikes: results.totalSpikes,
+      totalPoints: results.totalSpikes
+    };
+  };
 
   const fetchClusterData = async () => {
     try {
@@ -107,11 +156,18 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike }) => {
 
       // Get channel ID based on mode
       let channelId;
-      if (mode === 'real') {
+      if (mode === 'algorithm' && selectedAlgorithm === 'torchbci_jims') {
+        // For TorchBCI JimsAlgorithm, channel comes from the clustering results
+        channelId = cluster.spikeChannels && cluster.spikeChannels[pointIndex] 
+          ? cluster.spikeChannels[pointIndex] 
+          : 181;
+      } else if (mode === 'real') {
         channelId = cluster.channelId || channelMapping[cluster.clusterId] || 181;
       } else {
         channelId = selectedChannels[clusterIndex];
       }
+      
+      console.log(`[${selectedAlgorithm}] Fetching spike preview - Cluster: ${clusterIndex}, Point: ${pointIndex}, Time: ${spikeTime}, Channel: ${channelId}`);
       
       const response = await fetch(`${apiUrl}/api/spike-preview`, {
         method: 'POST',
@@ -123,7 +179,9 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike }) => {
           channelId: channelId,
           window: 10,
           filterType: filterType,
-          pointIndex: pointIndex
+          pointIndex: pointIndex,
+          algorithm: selectedAlgorithm,  // Pass which algorithm is being used
+          mode: mode  // Pass the mode (algorithm, real, synthetic)
         })
       });
       
@@ -580,6 +638,32 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike }) => {
     // Trigger re-fetch with new mappings
     fetchClusterData();
   };
+
+  // Show message if waiting for TorchBCI JimsAlgorithm to run
+  if (selectedAlgorithm === 'torchbci_jims' && (!clusterData || !clusteringResults)) {
+    return (
+      <div className="cluster-view">
+        <div className="cluster-header">
+          <h2>Spike Cluster Visualization</h2>
+        </div>
+        <div className="cluster-content" style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          height: '100%',
+          fontSize: '1.2rem',
+          color: '#888'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <p>No clustering results available</p>
+            <p style={{ fontSize: '0.9rem', marginTop: '1rem' }}>
+              Click the <strong>Run</strong> button in the header to run TorchBCI JimsAlgorithm
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="cluster-view">

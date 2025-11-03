@@ -435,12 +435,13 @@ const MultiPanelView = ({ selectedDataset, clusteringResults, selectedAlgorithm 
             >
               Single Channel
             </button>
-            <button
+            {/* Neighboring Channels - Not implemented yet */}
+            {/* <button
               className={waveformViewMode === 'neighboring' ? 'active' : ''}
               onClick={() => setWaveformViewMode('neighboring')}
             >
               Neighboring Channels
-            </button>
+            </button> */}
           </div>
 
           {waveformViewMode === 'single' ? (

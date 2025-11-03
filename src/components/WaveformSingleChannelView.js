@@ -107,7 +107,7 @@ const WaveformSingleChannelView = ({
                 color: '#e0e6ed'
               },
               yaxis: {
-                title: 'Waveforms (z-scored)',
+                title: 'Waveforms',
                 gridcolor: 'rgba(64, 224, 208, 0.2)',
                 zerolinecolor: 'rgba(64, 224, 208, 0.4)',
                 color: '#e0e6ed'

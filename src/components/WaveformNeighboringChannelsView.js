@@ -109,7 +109,7 @@ const WaveformNeighboringChannelsView = ({
                 color: '#e0e6ed'
               },
               yaxis: {
-                title: 'Waveforms (z-scored, offset by channel)',
+                title: 'Waveforms (offset by channel)',
                 gridcolor: 'rgba(64, 224, 208, 0.2)',
                 zerolinecolor: 'rgba(64, 224, 208, 0.4)',
                 color: '#e0e6ed'

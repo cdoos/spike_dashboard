@@ -3,6 +3,7 @@ import './Timeline.css';
 
 const Timeline = ({ timeRange, windowSize, totalDataRange = 3500000, onTimeRangeChange }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
   const timelineRef = useRef(null);
   const dragStartRef = useRef({ x: 0, timeRange: { start: 0, end: 0 } });
 
@@ -39,6 +40,26 @@ const Timeline = ({ timeRange, windowSize, totalDataRange = 3500000, onTimeRange
       onTimeRangeChange({ start: newStart, end: newEnd });
     }
   };
+
+  // Monitor container width changes
+  React.useEffect(() => {
+    if (!timelineRef.current) return;
+    
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    
+    resizeObserver.observe(timelineRef.current);
+    
+    // Set initial width
+    setContainerWidth(timelineRef.current.getBoundingClientRect().width);
+    
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   React.useEffect(() => {
     if (isDragging) {
@@ -78,7 +99,7 @@ const Timeline = ({ timeRange, windowSize, totalDataRange = 3500000, onTimeRange
     
     for (let i = 0; i < numLabels; i++) {
       const time = (i / (numLabels - 1)) * totalDataRange;
-      labels.push(`${Math.round(time)}s`);
+      labels.push(`${Math.round(time)}`);
     }
     
     return labels;

@@ -4,9 +4,6 @@ import './ClusterListTable.css';
 const ClusterListTable = ({ clusters, selectedClusters, onClusterToggle }) => {
   return (
     <div className="cluster-list-table">
-      <div className="cluster-list-header">
-        <h3>Cluster List</h3>
-      </div>
       <div className="cluster-list-content">
         <table>
           <thead>

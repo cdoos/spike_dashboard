@@ -9,10 +9,6 @@ const SpikeListTable = ({ spikes, selectedSpike, onSpikeSelect, selectedClusters
 
   return (
     <div className="spike-list-table">
-      <div className="spike-list-header">
-        <h3>Spike List Table</h3>
-        <span className="spike-count">{filteredSpikes.length} spikes</span>
-      </div>
       <div className="spike-list-content">
         <table>
           <thead>

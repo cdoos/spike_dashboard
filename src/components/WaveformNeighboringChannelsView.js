@@ -1,74 +1,62 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import './WaveformNeighboringChannelsView.css';
 
 const WaveformNeighboringChannelsView = ({
   selectedClusters,
-  clusterWaveforms,
-  neighboringChannels,
-  highlightedSpike
+  selectedAlgorithm
 }) => {
-  const generateNeighboringChannelPlots = () => {
-    if (selectedClusters.length === 0 || !neighboringChannels) return [];
-
-    const traces = [];
-    const colors = ['#FF6B6B', '#4ECDC4', '#FFD700', '#9B59B6', '#E67E22'];
-
-    selectedClusters.forEach((clusterId, clusterIndex) => {
-      const clusterColor = colors[clusterIndex % colors.length];
-      const channels = neighboringChannels[clusterId] || [];
-
-      channels.forEach((channelData) => {
-        const waveforms = channelData.waveforms || [];
-        const isPeakChannel = channelData.isPeak;
-
-        waveforms.forEach((waveform, waveformIdx) => {
-          const opacity = highlightedSpike &&
-                         highlightedSpike.clusterId === clusterId &&
-                         highlightedSpike.waveformIdx === waveformIdx ? 1.0 : 0.15;
-
-          const lineWidth = isPeakChannel ? 2 : 1;
-
-          traces.push({
-            x: waveform.timePoints,
-            y: waveform.amplitude.map(val => val + channelData.channelOffset), // Offset for visualization
-            type: 'scatter',
-            mode: 'lines',
-            name: waveformIdx === 0 ? `Cluster ${clusterId} - CH${channelData.channelId}` : undefined,
-            showlegend: waveformIdx === 0,
-            line: {
-              color: clusterColor,
-              width: lineWidth
-            },
-            opacity: opacity,
-            hovertemplate: `<b>Cluster ${clusterId} - CH${channelData.channelId}</b>${isPeakChannel ? ' (Peak)' : ''}<br>Waveform ${waveformIdx}<br>Time: %{x}<br>Amplitude: %{y:.2f}<extra></extra>`
-          });
-        });
-
-        // Add mean waveform for this channel
-        if (waveforms.length > 0) {
-          const meanWaveform = calculateMeanWaveform(waveforms);
-          traces.push({
-            x: meanWaveform.timePoints,
-            y: meanWaveform.amplitude.map(val => val + channelData.channelOffset),
-            type: 'scatter',
-            mode: 'lines',
-            name: `Mean CH${channelData.channelId}`,
-            line: {
-              color: '#000000',
-              width: isPeakChannel ? 3 : 2
-            },
-            opacity: 1.0,
-            showlegend: false,
-            hovertemplate: `<b>Mean CH${channelData.channelId}</b>${isPeakChannel ? ' (Peak)' : ''}<br>Time: %{x}<br>Amplitude: %{y:.2f}<extra></extra>`
-          });
-        }
+  const [selectedClusterId, setSelectedClusterId] = useState(null);
+  const [multiChannelData, setMultiChannelData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Auto-select first cluster when selectedClusters changes
+  useEffect(() => {
+    if (selectedClusters.length > 0 && selectedClusterId === null) {
+      setSelectedClusterId(selectedClusters[0]);
+    } else if (selectedClusters.length === 0) {
+      setSelectedClusterId(null);
+      setMultiChannelData(null);
+    } else if (!selectedClusters.includes(selectedClusterId)) {
+      setSelectedClusterId(selectedClusters[0]);
+    }
+  }, [selectedClusters]);
+  
+  // Fetch multi-channel waveforms when cluster selection changes
+  useEffect(() => {
+    if (selectedClusterId !== null) {
+      fetchMultiChannelWaveforms(selectedClusterId);
+    }
+  }, [selectedClusterId, selectedAlgorithm]);
+  
+  const fetchMultiChannelWaveforms = async (clusterId) => {
+    setIsLoading(true);
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/cluster-multi-channel-waveforms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clusterId: clusterId,
+          maxWaveforms: 50,
+          windowSize: 30,
+          algorithm: selectedAlgorithm
+        })
       });
-    });
-
-    return traces;
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMultiChannelData(data);
+        console.log(`Loaded multi-channel waveforms for cluster ${clusterId}`, data);
+      }
+    } catch (error) {
+      console.error('Error fetching multi-channel waveforms:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
-
   const calculateMeanWaveform = (waveforms) => {
     if (waveforms.length === 0) return { timePoints: [], amplitude: [] };
 
@@ -81,61 +69,147 @@ const WaveformNeighboringChannelsView = ({
     return { timePoints, amplitude: meanAmplitude };
   };
 
+  const getClusterColor = (clusterId) => {
+    return `hsl(${(clusterId * 137) % 360}, 70%, 60%)`;
+  };
+
+  const channelPlots = useMemo(() => {
+    if (!multiChannelData || !multiChannelData.channels) return [];
+    
+    const channelIds = Object.keys(multiChannelData.channels).map(Number).sort((a, b) => a - b);
+    const clusterColor = getClusterColor(multiChannelData.clusterId);
+    
+    return channelIds.map(channelId => {
+      const channelData = multiChannelData.channels[channelId];
+      const waveforms = channelData.waveforms || [];
+      const isPeakChannel = channelData.isPeak;
+      
+      const traces = [];
+      
+      // Add individual waveforms
+      waveforms.forEach((waveform, idx) => {
+        traces.push({
+          x: waveform.timePoints,
+          y: waveform.amplitude,
+          type: 'scatter',
+          mode: 'lines',
+          line: {
+            color: clusterColor,
+            width: 1
+          },
+          opacity: 0.3,
+          showlegend: false,
+          hovertemplate: `Waveform ${idx}<br>Time: %{x:.2f} ms<br>Amplitude: %{y:.2f}<extra></extra>`
+        });
+      });
+      
+      // Add mean waveform
+      if (waveforms.length > 0) {
+        const meanWaveform = calculateMeanWaveform(waveforms);
+        traces.push({
+          x: meanWaveform.timePoints,
+          y: meanWaveform.amplitude,
+          type: 'scatter',
+          mode: 'lines',
+          line: {
+            color: clusterColor,
+            width: 3
+          },
+          opacity: 1.0,
+          showlegend: false,
+          name: 'Mean',
+          hovertemplate: `Mean<br>Time: %{x:.2f} ms<br>Amplitude: %{y:.2f}<extra></extra>`
+        });
+      }
+      
+      return {
+        channelId,
+        isPeakChannel,
+        traces
+      };
+    });
+  }, [multiChannelData]);
+
   return (
     <div className="waveform-neighboring-channels-view">
-      <div className="waveform-header">
-        <h3>Waveform View - Peak and Neighboring Channels</h3>
-        <div className="waveform-info">
-          {selectedClusters.length > 0 ? (
-            <span>Showing {selectedClusters.length} cluster{selectedClusters.length !== 1 ? 's' : ''} with neighboring channels</span>
-          ) : (
-            <span>Select clusters to view waveforms</span>
+      {/* Cluster Selector */}
+      {selectedClusters.length > 0 && (
+        <div className="cluster-selector-bar">
+          <label htmlFor="cluster-select">Select Cluster:</label>
+          <select
+            id="cluster-select"
+            value={selectedClusterId || ''}
+            onChange={(e) => setSelectedClusterId(Number(e.target.value))}
+          >
+            {selectedClusters.map(clusterId => (
+              <option key={clusterId} value={clusterId}>
+                Cluster {clusterId}
+              </option>
+            ))}
+          </select>
+          {multiChannelData && (
+            <span className="peak-channel-info">
+              Peak Channel: {multiChannelData.peakChannel}
+            </span>
           )}
         </div>
-      </div>
-      <div className="waveform-plot-container">
-        {selectedClusters.length > 0 ? (
-          <Plot
-            data={generateNeighboringChannelPlots()}
-            layout={{
-              autosize: true,
-              paper_bgcolor: 'rgba(30, 30, 60, 0.6)',
-              plot_bgcolor: 'rgba(0, 0, 0, 0.3)',
-              font: { color: '#e0e6ed', size: 11 },
-              xaxis: {
-                title: 'Time (ms)',
-                gridcolor: 'rgba(64, 224, 208, 0.2)',
-                zerolinecolor: 'rgba(64, 224, 208, 0.4)',
-                color: '#e0e6ed'
-              },
-              yaxis: {
-                title: 'Waveforms (offset by channel)',
-                gridcolor: 'rgba(64, 224, 208, 0.2)',
-                zerolinecolor: 'rgba(64, 224, 208, 0.4)',
-                color: '#e0e6ed'
-              },
-              hovermode: 'closest',
-              showlegend: true,
-              legend: {
-                x: 1,
-                xanchor: 'right',
-                y: 1,
-                bgcolor: 'rgba(26, 26, 46, 0.8)',
-                bordercolor: 'rgba(64, 224, 208, 0.3)',
-                borderwidth: 1
-              },
-              margin: { l: 60, r: 20, t: 20, b: 60 }
-            }}
-            config={{
-              displayModeBar: true,
-              displaylogo: false,
-              modeBarButtonsToRemove: ['lasso2d', 'select2d']
-            }}
-            style={{ width: '100%', height: '100%' }}
-          />
-        ) : (
+      )}
+      
+      {/* Channel Plots */}
+      <div className="multi-channel-plots-container">
+        {selectedClusters.length === 0 ? (
           <div className="no-data-message">
-            <p>Select clusters from the Cluster List to view neighboring channel waveforms</p>
+            <p>Select clusters from the Cluster List to view multi-channel waveforms</p>
+          </div>
+        ) : isLoading ? (
+          <div className="no-data-message">
+            <p>Loading multi-channel waveforms...</p>
+          </div>
+        ) : channelPlots.length === 0 ? (
+          <div className="no-data-message">
+            <p>No waveform data available</p>
+          </div>
+        ) : (
+          <div className="channel-plots-grid">
+            {channelPlots.map(({ channelId, isPeakChannel, traces }) => (
+              <div key={channelId} className={`channel-plot-item ${isPeakChannel ? 'peak-channel' : ''}`}>
+                <div className="channel-plot-header">
+                  CH{channelId} {isPeakChannel && '(Peak)'}
+                </div>
+                <Plot
+                  data={traces}
+                  layout={{
+                    autosize: true,
+                    paper_bgcolor: 'transparent',
+                    plot_bgcolor: 'rgba(0, 0, 0, 0.2)',
+                    font: { color: '#e0e6ed', size: 10 },
+                    xaxis: {
+                      title: '',
+                      gridcolor: 'rgba(64, 224, 208, 0.2)',
+                      zerolinecolor: 'rgba(64, 224, 208, 0.4)',
+                      color: '#e0e6ed',
+                      showticklabels: true
+                    },
+                    yaxis: {
+                      title: '',
+                      gridcolor: 'rgba(64, 224, 208, 0.2)',
+                      zerolinecolor: 'rgba(64, 224, 208, 0.4)',
+                      color: '#e0e6ed',
+                      showticklabels: true
+                    },
+                    hovermode: 'closest',
+                    showlegend: false,
+                    margin: { l: 40, r: 10, t: 10, b: 30 }
+                  }}
+                  config={{
+                    displayModeBar: false,
+                    responsive: true
+                  }}
+                  style={{ width: '100%', height: '100%' }}
+                  useResizeHandler={true}
+                />
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -422,7 +422,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
         }
       });
 
-      const color = cluster.color || `hsl(${(clusterIdx * 360) / totalClusters}, 70%, 60%)`;
+      const color = `hsl(${(cluster.clusterId * 137) % 360}, 70%, 60%)`;
       const clusterName = mode === 'real' ? `Cluster ${cluster.clusterId}` : `Cluster ${clusterIdx + 1}`;
 
       // Add unselected points trace
@@ -871,7 +871,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
             <div className="channel-mapping-list">
               {clusterData.clusterIds && clusterData.clusterIds.map((clusterId) => {
                 const cluster = clusterData.clusters.find(c => c.clusterId === clusterId);
-                const color = cluster ? cluster.color : '#888';
+                const color = cluster ? `hsl(${(clusterId * 137) % 360}, 70%, 60%)` : '#888';
                 return (
                   <div key={clusterId} className="channel-mapping-item">
                     <div className="cluster-info">

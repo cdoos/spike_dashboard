@@ -1427,6 +1427,135 @@ def get_cluster_waveforms():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/cluster-multi-channel-waveforms', methods=['POST'])
+def get_cluster_multi_channel_waveforms():
+    """Get multi-channel waveforms for a single cluster (center channel ± 2 neighbors)"""
+    global data_array, clustering_results
+    
+    try:
+        data = request.get_json()
+        cluster_id = data.get('clusterId')
+        max_waveforms = data.get('maxWaveforms', 50)
+        window_size = data.get('windowSize', 30)
+        algorithm = data.get('algorithm', 'preprocessed_kilosort')
+        
+        print(f"[{algorithm}] Multi-channel waveforms request for cluster: {cluster_id}")
+        
+        if cluster_id is None or data_array is None:
+            return jsonify({'error': 'Invalid cluster ID or no data loaded'}), 400
+        
+        # Get spike times and channels for this cluster
+        spike_times = []
+        spike_channels = []
+        
+        if algorithm == 'torchbci_jims' and clustering_results is not None:
+            if cluster_id >= len(clustering_results):
+                return jsonify({'error': 'Cluster ID out of range'}), 400
+            
+            cluster_spikes = clustering_results[cluster_id]
+            for spike in cluster_spikes:
+                spike_times.append(int(spike['time']))
+                spike_channels.append(int(spike['channel']))
+        else:
+            # Use preprocessed Kilosort data
+            cluster_file = os.path.join(LABELS_FOLDER, 'spikes_xyclu_time.npy')
+            if not os.path.exists(cluster_file):
+                cluster_file = os.path.join(LABELS_FOLDER, 'spikes_xyclu_time 1.npy')
+                if not os.path.exists(cluster_file):
+                    return jsonify({'error': 'Cluster data file not found'}), 404
+            
+            spikes_arr = np.load(cluster_file)
+            all_cluster_ids = spikes_arr[:, 2].astype(np.int64)
+            times_secs = spikes_arr[:, 3]
+            sampling_frequency = 30000
+            times_indices = (times_secs * sampling_frequency).astype(np.int64)
+            
+            mask = all_cluster_ids == cluster_id
+            spike_times = times_indices[mask].tolist()
+            
+            # For preprocessed data, we need to get the channel from somewhere
+            # For now, use a default mapping or extract from data
+            x_coords = spikes_arr[mask, 0]
+            if len(x_coords) > 0:
+                # Estimate channel from x coordinate (this is a simplification)
+                spike_channels = [181] * len(spike_times)  # Default to channel 181
+            else:
+                return jsonify({'error': 'No spikes found for this cluster'}), 404
+        
+        if len(spike_times) == 0:
+            return jsonify({'error': 'No spikes found for this cluster'}), 404
+        
+        # Find most frequent channel
+        channel_counts = {}
+        for ch in spike_channels:
+            channel_counts[ch] = channel_counts.get(ch, 0) + 1
+        
+        peak_channel = max(channel_counts, key=channel_counts.get)
+        print(f"Most frequent channel for cluster {cluster_id}: {peak_channel}")
+        
+        # Get ±2 neighboring channels
+        neighbor_offsets = [-2, -1, 0, 1, 2]
+        target_channels = [peak_channel + offset for offset in neighbor_offsets]
+        
+        # Limit number of waveforms
+        if len(spike_times) > max_waveforms:
+            indices = np.random.choice(len(spike_times), max_waveforms, replace=False)
+            selected_times = [spike_times[i] for i in indices]
+            selected_channels = [spike_channels[i] for i in indices]
+        else:
+            selected_times = spike_times
+            selected_channels = spike_channels
+        
+        # Fetch waveforms for each channel
+        channels_data = {}
+        for target_channel in target_channels:
+            channel_idx = target_channel - 1
+            
+            # Check if channel is valid
+            if channel_idx < 0 or channel_idx >= data_array.shape[0]:
+                continue
+            
+            waveforms = []
+            for spike_time in selected_times:
+                start_idx = max(0, int(spike_time) - window_size)
+                end_idx = min(data_array.shape[1], int(spike_time) + window_size)
+                
+                if start_idx < end_idx:
+                    waveform = data_array[channel_idx, start_idx:end_idx].astype(float)
+                    
+                    # Z-score normalize
+                    if len(waveform) > 0:
+                        mean = np.mean(waveform)
+                        std = np.std(waveform)
+                        if std > 0:
+                            waveform = (waveform - mean) / std
+                    
+                    # Create time points in milliseconds
+                    time_points = [(i - window_size) / 30.0 for i in range(len(waveform))]
+                    
+                    waveforms.append({
+                        'timePoints': time_points,
+                        'amplitude': waveform.tolist()
+                    })
+            
+            channels_data[target_channel] = {
+                'channelId': target_channel,
+                'waveforms': waveforms,
+                'isPeak': target_channel == peak_channel
+            }
+        
+        return jsonify({
+            'clusterId': cluster_id,
+            'peakChannel': peak_channel,
+            'channels': channels_data
+        })
+    
+    except Exception as e:
+        print(f"Error getting multi-channel waveforms: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/spike-sorting/algorithms', methods=['GET'])
 def list_spike_sorting_algorithms():
     """List all available spike sorting algorithms"""

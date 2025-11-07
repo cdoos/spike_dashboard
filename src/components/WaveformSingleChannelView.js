@@ -19,17 +19,42 @@ const WaveformSingleChannelView = ({
     return { timePoints, amplitude: meanAmplitude };
   };
 
-  const waveformPlots = useMemo(() => {
-    if (selectedClusters.length === 0) return [];
+  // Function to get PCA-matching color
+  const getClusterColor = (clusterId) => {
+    return `hsl(${(clusterId * 137) % 360}, 70%, 60%)`;
+  };
+
+  const [visibleClusters, setVisibleClusters] = React.useState({});
+
+  // Initialize all clusters as visible when selectedClusters changes
+  React.useEffect(() => {
+    const initial = {};
+    selectedClusters.forEach(id => {
+      // Only set to true if it's a new cluster (not already in state)
+      if (!(id in visibleClusters)) {
+        initial[id] = true;
+      }
+    });
+    if (Object.keys(initial).length > 0) {
+      setVisibleClusters(prev => ({ ...prev, ...initial }));
+    }
+  }, [selectedClusters]);
+
+  const { waveformPlots, visibilityButtons } = useMemo(() => {
+    if (selectedClusters.length === 0) return { waveformPlots: [], visibilityButtons: [] };
 
     const traces = [];
-    const colors = ['#FF6B6B', '#4ECDC4', '#FFD700', '#9B59B6', '#E67E22'];
+    const buttons = [];
+    const traceIndicesByCluster = {};
+    let currentTraceIndex = 0;
 
-    selectedClusters.forEach((clusterId, index) => {
+    selectedClusters.forEach((clusterId) => {
       const waveforms = clusterWaveforms[clusterId];
       if (!waveforms || waveforms.length === 0) return;
 
-      const color = colors[index % colors.length];
+      const color = getClusterColor(clusterId);
+      const clusterTraceIndices = [];
+      const isVisible = visibleClusters[clusterId] !== false;
 
       // Plot all waveforms for this cluster with reduced opacity
       waveforms.forEach((waveform, waveformIdx) => {
@@ -46,18 +71,21 @@ const WaveformSingleChannelView = ({
           y: waveform.amplitude,
           type: 'scatter',
           mode: 'lines',
-          name: waveformIdx === 0 ? `Cluster ${clusterId}` : undefined,
-          showlegend: waveformIdx === 0,
+          showlegend: false,
           line: {
             color: color,
             width: lineWidth
           },
           opacity: opacity,
+          visible: isVisible,
+          legendgroup: `cluster${clusterId}`,
           hovertemplate: `<b>Cluster ${clusterId}</b><br>Waveform ${waveformIdx}<br>Time: %{x}<br>Amplitude: %{y:.2f}<extra></extra>`
         });
+        clusterTraceIndices.push(currentTraceIndex);
+        currentTraceIndex++;
       });
 
-      // Add mean waveform (bold black line)
+      // Add mean waveform (bold line with same color)
       if (waveforms.length > 0) {
         const meanWaveform = calculateMeanWaveform(waveforms);
         traces.push({
@@ -65,32 +93,60 @@ const WaveformSingleChannelView = ({
           y: meanWaveform.amplitude,
           type: 'scatter',
           mode: 'lines',
-          name: `Cluster ${clusterId} Mean`,
+          showlegend: false,
           line: {
-            color: '#000000',
-            width: 3
+            color: color,
+            width: 4
           },
           opacity: 1.0,
+          visible: isVisible,
+          legendgroup: `cluster${clusterId}`,
           hovertemplate: `<b>Cluster ${clusterId} Mean</b><br>Time: %{x}<br>Amplitude: %{y:.2f}<extra></extra>`
+        });
+        clusterTraceIndices.push(currentTraceIndex);
+        currentTraceIndex++;
+      }
+
+      traceIndicesByCluster[clusterId] = clusterTraceIndices;
+    });
+
+    // Add header button as first item
+    buttons.push({
+      label: 'Visible Clusters',
+      method: 'skip',
+      execute: false
+    });
+    
+    // Create toggle button for each cluster with visual indicator
+    selectedClusters.forEach((clusterId) => {
+      if (traceIndicesByCluster[clusterId]) {
+        const isCurrentlyVisible = visibleClusters[clusterId] !== false;
+        
+        // Create visibility array - toggle only this cluster
+        const newVisibility = traces.map((trace) => {
+          if (trace.legendgroup === `cluster${clusterId}`) {
+            return !isCurrentlyVisible;
+          }
+          return trace.visible;
+        });
+        
+        // Add visual indicator for visibility
+        const indicator = isCurrentlyVisible ? '● ' : '○ ';
+        
+        buttons.push({
+          label: `  ${indicator}Cluster ${clusterId}`,
+          method: 'restyle',
+          args: ['visible', newVisibility],
+          execute: true
         });
       }
     });
 
-    return traces;
-  }, [selectedClusters, clusterWaveforms, highlightedSpike]);
+    return { waveformPlots: traces, visibilityButtons: buttons };
+  }, [selectedClusters, clusterWaveforms, highlightedSpike, visibleClusters]);
 
   return (
     <div className="waveform-single-channel-view">
-      <div className="waveform-header">
-        <h3>Waveform View - Single Channel</h3>
-        <div className="waveform-info">
-          {selectedClusters.length > 0 ? (
-            <span>Showing {selectedClusters.length} cluster{selectedClusters.length !== 1 ? 's' : ''}</span>
-          ) : (
-            <span>Select clusters to view waveforms</span>
-          )}
-        </div>
-      </div>
       <div className="waveform-plot-container">
         {selectedClusters.length > 0 ? (
           <Plot
@@ -113,16 +169,24 @@ const WaveformSingleChannelView = ({
                 color: '#e0e6ed'
               },
               hovermode: 'closest',
-              showlegend: true,
-              legend: {
-                x: 1,
+              showlegend: false,
+              margin: { l: 60, r: 20, t: 20, b: 60 },
+              updatemenus: visibilityButtons.length > 0 ? [{
+                type: 'dropdown',
+                direction: 'down',
+                x: 0.99,
+                y: 0.97,
                 xanchor: 'right',
-                y: 1,
-                bgcolor: 'rgba(26, 26, 46, 0.8)',
-                bordercolor: 'rgba(64, 224, 208, 0.3)',
-                borderwidth: 1
-              },
-              margin: { l: 60, r: 20, t: 20, b: 60 }
+                yanchor: 'top',
+                bgcolor: 'rgba(26, 26, 46, 0.9)',
+                bordercolor: 'rgba(64, 224, 208, 0.5)',
+                borderwidth: 1,
+                font: { color: '#40e0d0', size: 11 },
+                buttons: visibilityButtons,
+                active: 0,
+                pad: { t: 0, b: 0 },
+                showactive: false
+              }] : []
             }}
             config={{
               displayModeBar: true,
@@ -130,6 +194,29 @@ const WaveformSingleChannelView = ({
               modeBarButtonsToRemove: ['lasso2d', 'select2d']
             }}
             style={{ width: '100%', height: '100%' }}
+            useResizeHandler={true}
+            onUpdate={(figure) => {
+              // Sync React state with plot visibility after Plotly updates
+              if (figure && figure.data) {
+                const newVisible = {};
+                let hasChanges = false;
+                
+                selectedClusters.forEach(clusterId => {
+                  const clusterTraces = figure.data.filter(t => t.legendgroup === `cluster${clusterId}`);
+                  if (clusterTraces.length > 0) {
+                    const isVisible = clusterTraces[0].visible !== false;
+                    newVisible[clusterId] = isVisible;
+                    if (visibleClusters[clusterId] !== isVisible) {
+                      hasChanges = true;
+                    }
+                  }
+                });
+                
+                if (hasChanges) {
+                  setVisibleClusters(prev => ({ ...prev, ...newVisible }));
+                }
+              }
+            }}
           />
         ) : (
           <div className="no-data-message">

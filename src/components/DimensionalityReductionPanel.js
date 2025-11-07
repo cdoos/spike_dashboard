@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import './DimensionalityReductionPanel.css';
 
@@ -10,6 +10,10 @@ const DimensionalityReductionPanel = ({
   clusteringResults,
   selectedAlgorithm
 }) => {
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [spikePreview, setSpikePreview] = useState(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [previewPosition, setPreviewPosition] = useState('right'); // 'left' or 'right'
   const plotData = useMemo(() => {
     console.log(`[${selectedAlgorithm}] Rendering PCA plot for clusters:`, selectedClusters);
     
@@ -137,7 +141,7 @@ const DimensionalityReductionPanel = ({
         }
       });
 
-      const color = cluster.color || `hsl(${(cluster.clusterId * 137) % 360}, 70%, 60%)`;
+      const color = `hsl(${(cluster.clusterId * 137) % 360}, 70%, 60%)`;
       const opacity = 0.85;
 
       // Add regular points
@@ -198,6 +202,103 @@ const DimensionalityReductionPanel = ({
     return traces;
   }, [clusterData, selectedClusters, selectedSpike, clusteringResults, selectedAlgorithm]);
 
+  const fetchSpikePreview = async (clusterId, pointIdx) => {
+    setIsLoadingPreview(true);
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+      // Get spike time and channel from cluster data
+      let spikeTime, channelId;
+      
+      if (selectedAlgorithm === 'torchbci_jims' && clusteringResults && clusteringResults.available) {
+        const spike = clusteringResults.fullData[clusterId][pointIdx];
+        spikeTime = spike.time;
+        channelId = spike.channel;
+      } else if (clusterData && clusterData.clusters) {
+        const cluster = clusterData.clusters.find(c => c.clusterId === clusterId);
+        if (!cluster) {
+          console.error('Cluster not found');
+          setIsLoadingPreview(false);
+          return;
+        }
+        spikeTime = cluster.spikeTimes[pointIdx];
+        channelId = cluster.spikeChannels ? cluster.spikeChannels[pointIdx] : 181;
+      }
+
+      const response = await fetch(`${apiUrl}/api/spike-preview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          spikeTime: spikeTime,
+          channelId: channelId,
+          window: 10,
+          filterType: 'highpass',
+          pointIndex: pointIdx
+        })
+      });
+
+      if (response.ok) {
+        const preview = await response.json();
+        setSpikePreview({ ...preview, clusterId, pointIdx });
+      }
+    } catch (error) {
+      console.error('Error fetching spike preview:', error);
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handlePointHover = (event) => {
+    if (event.points && event.points.length > 0) {
+      const point = event.points[0];
+      const customdata = point.customdata;
+      
+      // Determine position based on point's data x coordinate relative to plot range
+      // Get the x-axis range from the plot
+      try {
+        const xValue = point.x;
+        const plotElement = event.event?.target;
+        
+        if (plotElement && typeof xValue === 'number') {
+          // Try to get the x-axis range from the plot layout
+          const plot = plotElement.closest('.js-plotly-plot');
+          if (plot && plot.layout && plot.layout.xaxis) {
+            const xRange = plot.layout.xaxis.range || [plot.layout.xaxis.min, plot.layout.xaxis.max];
+            if (xRange && xRange.length === 2) {
+              const xMid = (xRange[0] + xRange[1]) / 2;
+              const isLeftSide = xValue < xMid;
+              setPreviewPosition(isLeftSide ? 'right' : 'left');
+            } else {
+              // Fallback to pixel position
+              const bbox = plotElement.getBoundingClientRect();
+              const xPos = event.event.clientX - bbox.left;
+              const isLeftSide = xPos < bbox.width / 2;
+              setPreviewPosition(isLeftSide ? 'right' : 'left');
+            }
+          } else {
+            // Fallback to pixel position if we can't get the plot layout
+            const bbox = plotElement.getBoundingClientRect();
+            const xPos = event.event.clientX - bbox.left;
+            const isLeftSide = xPos < bbox.width / 2;
+            setPreviewPosition(isLeftSide ? 'right' : 'left');
+          }
+        }
+      } catch (error) {
+        console.log('Could not determine preview position, using default');
+      }
+      
+      setHoveredPoint({ clusterId: customdata.clusterId, pointIdx: customdata.pointIdx });
+      fetchSpikePreview(customdata.clusterId, customdata.pointIdx);
+    }
+  };
+
+  const handlePointUnhover = () => {
+    setHoveredPoint(null);
+    setSpikePreview(null);
+  };
+
   const handlePointClick = (event) => {
     if (event.points && event.points.length > 0 && onSpikeClick) {
       const point = event.points[0];
@@ -206,13 +307,91 @@ const DimensionalityReductionPanel = ({
     }
   };
 
+  const generatePreviewPlot = () => {
+    if (!spikePreview || !spikePreview.waveform) return null;
+
+    const spikeTime = spikePreview.spikeTime;
+    const window = spikePreview.window || 10;
+    const relativeTimePoints = Array.from(
+      { length: spikePreview.waveform.length },
+      (_, i) => i - window
+    );
+
+    return {
+      data: [
+        {
+          x: relativeTimePoints,
+          y: spikePreview.waveform,
+          type: 'scatter',
+          mode: 'lines',
+          line: { color: '#40e0d0', width: 2 },
+          fill: 'tozeroy',
+          fillcolor: 'rgba(64, 224, 208, 0.2)'
+        },
+        // Vertical line at spike time (time 0)
+        {
+          x: [0, 0],
+          y: [Math.min(...spikePreview.waveform), Math.max(...spikePreview.waveform)],
+          type: 'scatter',
+          mode: 'lines',
+          line: { color: 'rgba(255, 255, 255, 0.5)', width: 2, dash: 'dash' },
+          hoverinfo: 'skip',
+          showlegend: false
+        }
+      ],
+      layout: {
+        autosize: true,
+        paper_bgcolor: 'rgba(26, 26, 46, 0.95)',
+        plot_bgcolor: 'rgba(0, 0, 0, 0.3)',
+        font: { color: '#e0e6ed', size: 10 },
+        xaxis: {
+          title: 'Time Relative to Spike',
+          gridcolor: 'rgba(64, 224, 208, 0.2)',
+          zerolinecolor: 'rgba(64, 224, 208, 0.4)',
+          color: '#e0e6ed'
+        },
+        yaxis: {
+          title: 'Amplitude',
+          gridcolor: 'rgba(64, 224, 208, 0.2)',
+          zerolinecolor: 'rgba(64, 224, 208, 0.4)',
+          color: '#e0e6ed'
+        },
+        margin: { l: 40, r: 10, t: 10, b: 40 },
+        showlegend: false
+      },
+      config: {
+        displayModeBar: false,
+        responsive: true
+      }
+    };
+  };
+
   return (
     <div className="dimensionality-reduction-panel">
-      <div className="dim-reduction-header">
-        <h3>Dimensionality Reduction Plot View (PCA)</h3>
-      </div>
+      {hoveredPoint && (
+        <div className={`spike-preview-overlay spike-preview-${previewPosition}`}>
+          <div className="preview-info">
+            <h4>Spike Preview</h4>
+            <p>Cluster {hoveredPoint.clusterId} - Point {hoveredPoint.pointIdx}</p>
+            {spikePreview && <p>Ch{spikePreview.channelId} @ {spikePreview.spikeTime}</p>}
+          </div>
+          {isLoadingPreview ? (
+            <div className="preview-loading">Loading...</div>
+          ) : spikePreview && generatePreviewPlot() && (
+            <div className="preview-plot">
+              <Plot
+                data={generatePreviewPlot().data}
+                layout={generatePreviewPlot().layout}
+                config={generatePreviewPlot().config}
+                style={{ width: '100%', height: '150px' }}
+              />
+            </div>
+          )}
+        </div>
+      )}
       <div className="dim-reduction-plot-container">
-        {clusterData && clusterData.clusters && clusterData.clusters.length > 0 ? (
+        {((selectedAlgorithm === 'torchbci_jims' && clusteringResults && clusteringResults.available) ||
+          (clusterData && clusterData.clusters && clusterData.clusters.length > 0)) ? (
           <Plot
             data={plotData}
             layout={{
@@ -251,7 +430,10 @@ const DimensionalityReductionPanel = ({
               modeBarButtonsToRemove: ['lasso2d', 'select2d']
             }}
             style={{ width: '100%', height: '100%' }}
+            useResizeHandler={true}
             onClick={handlePointClick}
+            onHover={handlePointHover}
+            onUnhover={handlePointUnhover}
           />
         ) : selectedClusters.length === 0 ? (
           <div className="no-data-message">

@@ -1,125 +1,112 @@
 .multi-panel-view {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   height: 100%;
   width: 100%;
-  gap: 0.5rem;
   padding: 0.5rem;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   overflow: hidden;
 }
 
-/* Panel Rows */
+/* Panel Rows - Not used anymore, keeping for backwards compatibility */
 .panel-row {
-  display: flex;
-  gap: 0.5rem;
-  position: relative;
+  display: contents;
 }
 
-.panel-row-top {
-  flex: 0 0 45%;
-  min-height: 250px;
-}
-
-.panel-row-bottom {
-  flex: 1;
-  min-height: 400px;
-}
-
-/* Individual Panels */
+/* Individual Panels - Absolutely positioned containers */
 .panel {
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  min-width: 100px;
+  position: absolute;
 }
 
+/* Default widget positions and sizes - fill the entire window */
 .panel-cluster-list {
-  flex: 0 0 180px;
-  min-width: 120px;
+  top: 10px;
+  left: 10px;
+}
+
+.panel-cluster-list .dockable-widget {
+  width: 180px;
+  height: 350px;
 }
 
 .panel-spike-list {
-  flex: 0 0 220px;
-  min-width: 170px;
+  top: 10px;
+  left: 200px;
+}
+
+.panel-spike-list .dockable-widget {
+  width: 200px;
+  height: 350px;
 }
 
 .panel-cluster-stats {
-  flex: 0.6;
-  min-width: 180px;
-  max-width: 350px;
+  top: 10px;
+  left: 410px;
+}
+
+.panel-cluster-stats .dockable-widget {
+  width: 200px;
+  height: 350px;
 }
 
 .panel-signal-view {
-  flex: 2.4;
-  min-width: 350px;
+  top: 10px;
+  left: 620px;
+}
+
+.panel-signal-view .dockable-widget {
+  width: calc(100vw - 660px);
+  height: 350px;
 }
 
 .panel-dim-reduction {
-  flex: 1;
-  min-width: 300px;
+  top: 370px;
+  left: 10px;
+}
+
+.panel-dim-reduction .dockable-widget {
+  width: calc(50vw - 35px);
+  height: calc(100vh - 470px);
 }
 
 .panel-waveform {
-  flex: 1;
-  min-width: 300px;
-  display: flex;
-  flex-direction: column;
+  top: 370px;
+  left: calc(50vw);
 }
 
-/* Resize Handles */
-.resize-handle {
-  position: absolute;
-  z-index: 10;
-  background: transparent;
-}
-
-.resize-handle:hover {
-  background: rgba(64, 224, 208, 0.3);
-}
-
-.resize-handle.active {
-  background: rgba(64, 224, 208, 0.5);
-}
-
-.resize-handle-vertical {
-  right: -3px;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  cursor: col-resize;
-}
-
-.resize-handle-horizontal {
-  bottom: -3px;
-  left: 0;
-  right: 0;
-  height: 6px;
-  cursor: row-resize;
+.panel-waveform .dockable-widget {
+  width: calc(50vw - 35px);
+  height: calc(100vh - 470px);
 }
 
 /* Waveform View Toggle */
 .waveform-view-toggle {
-  display: flex;
+  display: flex !important;
+  flex-direction: row !important;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: rgba(30, 30, 60, 0.6);
-  border-bottom: 2px solid rgba(64, 224, 208, 0.3);
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border-bottom: 1px solid rgba(64, 224, 208, 0.2);
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  flex-basis: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
 }
 
 .waveform-view-toggle button {
-  padding: 0.5rem 1rem;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.4rem 0.75rem;
   background: rgba(64, 224, 208, 0.1);
   border: 1px solid rgba(64, 224, 208, 0.3);
   border-radius: 4px;
   color: #e0e6ed;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 500;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .waveform-view-toggle button:hover {
@@ -140,18 +127,43 @@
   display: flex;
 }
 
+/* Widget content should fill available space */
+.multi-panel-view .dockable-widget .widget-content > div {
+  height: 100%;
+  width: 100%;
+}
+
+/* Better spacing for widget content */
+.multi-panel-view .dockable-widget .widget-content {
+  padding: 0;
+}
+
+/* Ensure child components fill space */
+.multi-panel-view .widget-content > * {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Responsive adjustments */
 @media (max-width: 1200px) {
-  .panel-row-top {
-    flex-direction: column;
+  .multi-panel-view {
+    overflow-x: auto;
+    overflow-y: auto;
   }
-
-  .panel-row-bottom {
-    flex-direction: column;
-  }
-
+  
+  /* Stack widgets vertically on small screens */
   .panel {
-    min-height: 200px;
+    position: relative !important;
+    left: 0 !important;
+    display: block;
+    margin-bottom: 1rem;
+  }
+
+  .multi-panel-view .dockable-widget {
+    width: 100% !important;
+    min-height: 250px;
+    position: relative;
   }
 }
 

@@ -115,10 +115,16 @@ function App() {
         const data = await response.json();
         console.log('Available algorithms:', data);
         setAlgorithms(data.algorithms || []);
-        // Select first available algorithm by default
-        const firstAvailable = data.algorithms?.find(a => a.available);
-        if (firstAvailable) {
-          setSelectedAlgorithm(firstAvailable.name);
+        // Select Preprocessed Kilosort by default
+        const preprocessedKilosort = data.algorithms?.find(a => a.name === 'preprocessed_kilosort' && a.available);
+        if (preprocessedKilosort) {
+          setSelectedAlgorithm(preprocessedKilosort.name);
+        } else {
+          // Fallback to first available algorithm
+          const firstAvailable = data.algorithms?.find(a => a.available);
+          if (firstAvailable) {
+            setSelectedAlgorithm(firstAvailable.name);
+          }
         }
       }
     } catch (error) {
@@ -510,6 +516,9 @@ function App() {
     }
   };
 
+  // Widget toolbar ref to pass to MultiPanelView
+  const multiPanelViewRef = React.useRef(null);
+
   return (
     <div className="app">
       <Header
@@ -530,13 +539,16 @@ function App() {
         onRunAlgorithm={handleRunAlgorithm}
         isRunningAlgorithm={isRunningAlgorithm}
         onOpenParameters={handleOpenParameters}
+        multiPanelViewRef={multiPanelViewRef}
       />
       <div className="main-container">
         {selectedView === 'multipanel' ? (
           <MultiPanelView 
+            ref={multiPanelViewRef}
             selectedDataset={currentDataset} 
             clusteringResults={clusteringResults}
             selectedAlgorithm={selectedAlgorithm}
+            datasetInfo={datasetInfo}
           />
         ) : (
           <>

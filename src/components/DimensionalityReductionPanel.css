@@ -40,3 +40,54 @@
   margin: 0;
   font-size: 0.95rem;
 }
+
+.spike-preview-overlay {
+  position: absolute;
+  top: 10px;
+  width: 280px;
+  background: rgba(26, 26, 46, 0.95);
+  border: 1px solid rgba(64, 224, 208, 0.5);
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.spike-preview-overlay.spike-preview-left {
+  left: 10px;
+}
+
+.spike-preview-overlay.spike-preview-right {
+  right: 10px;
+  left: auto;
+}
+
+.spike-preview-overlay .preview-info {
+  margin-bottom: 8px;
+}
+
+.spike-preview-overlay .preview-info h4 {
+  margin: 0 0 6px 0;
+  color: #40e0d0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.spike-preview-overlay .preview-info p {
+  margin: 2px 0;
+  color: #e0e6ed;
+  font-size: 0.8rem;
+}
+
+.spike-preview-overlay .preview-loading {
+  color: rgba(224, 230, 237, 0.7);
+  font-size: 0.8rem;
+  font-style: italic;
+  text-align: center;
+  padding: 10px;
+}
+
+.spike-preview-overlay .preview-plot {
+  margin-top: 8px;
+}

@@ -3,7 +3,7 @@ import SpikeGrid from './SpikeGrid';
 import Timeline from './Timeline';
 import './SignalViewPanel.css';
 
-const SignalViewPanel = ({ highlightedSpikes }) => {
+const SignalViewPanel = ({ highlightedSpikes, datasetInfo }) => {
   // State management - exact copy from App.js pattern
   const [selectedChannels, setSelectedChannels] = useState([179, 181, 183]);
   const [channelScrollOffset, setChannelScrollOffset] = useState(0);
@@ -18,8 +18,10 @@ const SignalViewPanel = ({ highlightedSpikes }) => {
   const [selectedDataType, setSelectedDataType] = useState('raw');
   const [filterType, setFilterType] = useState('none');
   const [filteredLineColor, setFilteredLineColor] = useState('#FFD700');
-  const [totalDataPoints] = useState(3500000);
-  const [totalChannels] = useState(385);
+  
+  // Use datasetInfo from props, fallback to defaults
+  const totalDataPoints = datasetInfo?.totalDataPoints || 3500000;
+  const totalChannels = datasetInfo?.totalChannels || 385;
 
   const dataCache = useRef({});
 
@@ -133,7 +135,6 @@ const SignalViewPanel = ({ highlightedSpikes }) => {
     <div className="signal-view-panel">
       {/* Header with controls - exact copy of VisualizationArea */}
       <div className="viz-header">
-        <h2>Signal View</h2>
         <div className="time-controls">
           <label>Data Type:</label>
           <select

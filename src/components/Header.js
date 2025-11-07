@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import DatasetSelector from './DatasetSelector';
+import WidgetToolbar from './WidgetToolbar';
 import './Header.css';
 
 const Header = ({
@@ -19,15 +20,37 @@ const Header = ({
   onAlgorithmChange,
   onRunAlgorithm,
   isRunningAlgorithm,
-  onOpenParameters
+  onOpenParameters,
+  multiPanelViewRef
 }) => {
   // Check if the selected algorithm supports parameters (TorchBCI Algorithm)
   const selectedAlgo = algorithms?.find(a => a.name === selectedAlgorithm);
-  const showParametersButton = selectedAlgo?.name === 'torchbci_jims' && selectedAlgo?.available;
+  const showParametersButton = selectedView === 'multipanel' && selectedAlgo?.name === 'torchbci_jims' && selectedAlgo?.available;
+  
+  // Show widget toolbar only in multi-panel view
+  const showWidgetToolbar = selectedView === 'multipanel' && multiPanelViewRef?.current;
+  
+  // Get fresh widget list without key prop that causes remounting
+  const getWidgetList = () => {
+    if (showWidgetToolbar && multiPanelViewRef.current) {
+      return multiPanelViewRef.current.getWidgetList();
+    }
+    return [];
+  };
 
   return (
     <div className="header">
-      <h1>Spike Visualization Dashboard</h1>
+      <div className="header-left">
+        <h1>Spike Visualization Dashboard</h1>
+        
+        {showWidgetToolbar && (
+          <WidgetToolbar
+            widgets={getWidgetList()}
+            onToggleWidget={multiPanelViewRef.current.handleToggleWidget}
+            onResetLayout={multiPanelViewRef.current.handleResetLayout}
+          />
+        )}
+      </div>
 
       <div className="header-controls">
         {showParametersButton && (
@@ -52,32 +75,35 @@ const Header = ({
           </button>
         )}
 
-        <div className="view-selector-container">
-          <label htmlFor="algorithm-select">Algorithm:</label>
-          <select
-            id="algorithm-select"
-            className="view-selector"
-            value={selectedAlgorithm}
-            onChange={(e) => onAlgorithmChange(e.target.value)}
-            disabled={!algorithms || algorithms.length === 0}
-          >
-            <option value="">Select Algorithm</option>
-            {algorithms && algorithms.map((algo) => (
-              <option key={algo.name} value={algo.name} disabled={!algo.available}>
-                {algo.displayName}{!algo.available ? ' (unavailable)' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
+        {selectedView === 'multipanel' && (
+          <>
+            <div className="view-selector-container">
+              <label htmlFor="algorithm-select">Algorithm:</label>
+              <select
+                id="algorithm-select"
+                className="view-selector"
+                value={selectedAlgorithm}
+                onChange={(e) => onAlgorithmChange(e.target.value)}
+                disabled={!algorithms || algorithms.length === 0}
+              >
+                {algorithms && algorithms.map((algo) => (
+                  <option key={algo.name} value={algo.name} disabled={!algo.available}>
+                    {algo.displayName}{!algo.available ? ' (unavailable)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <button
-          className="run-algorithm-button"
-          onClick={onRunAlgorithm}
-          disabled={!selectedAlgorithm || isRunningAlgorithm}
-          title={isRunningAlgorithm ? "Algorithm is running..." : "Run spike sorting algorithm"}
-        >
-          {isRunningAlgorithm ? 'Running...' : 'Run'}
-        </button>
+            <button
+              className="run-algorithm-button"
+              onClick={onRunAlgorithm}
+              disabled={!selectedAlgorithm || isRunningAlgorithm}
+              title={isRunningAlgorithm ? "Algorithm is running..." : "Run spike sorting algorithm"}
+            >
+              {isRunningAlgorithm ? 'Running...' : 'Run'}
+            </button>
+          </>
+        )}
 
         <div className="view-selector-container">
           <label htmlFor="view-select">View:</label>

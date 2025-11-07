@@ -17,7 +17,7 @@ const SpikeChannel = ({ channelId, data, isActive, timeRange, windowSize, spikeT
         layout: {
           autosize: true,
           xaxis: {
-            title: 'Time (s)',
+            title: 'Index',
             color: '#e0e6ed',
             gridcolor: 'rgba(64, 224, 208, 0.2)',
             showgrid: true
@@ -163,7 +163,7 @@ const SpikeChannel = ({ channelId, data, isActive, timeRange, windowSize, spikeT
         },
         showlegend: false,
         hoverinfo: 'x+y',
-        hovertemplate: 'Peak<br>Time: %{x}s<br>Amplitude: %{y}<extra></extra>'
+        hovertemplate: 'Peak<br>Index: %{x}<br>Amplitude: %{y}<extra></extra>'
       });
     }
 
@@ -172,7 +172,7 @@ const SpikeChannel = ({ channelId, data, isActive, timeRange, windowSize, spikeT
       layout: {
         autosize: true,
         xaxis: {
-          title: 'Time (s)',
+          title: 'Index',
           color: '#e0e6ed',
           gridcolor: 'rgba(64, 224, 208, 0.2)',
           showgrid: true,

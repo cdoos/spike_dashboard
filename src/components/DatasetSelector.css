@@ -114,7 +114,7 @@
 }
 
 .delete-dataset-btn {
-  display: flex;
+  display: none; /* Hidden to prevent accidental deletion */
   align-items: center;
   justify-content: center;
   background: rgba(239, 68, 68, 0.2);

@@ -105,20 +105,6 @@ const Header = ({
           </>
         )}
 
-        <div className="view-selector-container">
-          <label htmlFor="view-select">View:</label>
-          <select
-            id="view-select"
-            className="view-selector"
-            value={selectedView}
-            onChange={(e) => onViewChange(e.target.value)}
-          >
-            <option value="signal">Signal View</option>
-            <option value="clusters">Cluster View</option>
-            <option value="multipanel">Multi-Panel View</option>
-          </select>
-        </div>
-
         {selectedView === 'signal' && (
           <div className="view-selector-container">
             <label htmlFor="signal-type-select">Signal Type:</label>
@@ -134,6 +120,21 @@ const Header = ({
             </select>
           </div>
         )}
+
+        <div className="view-selector-container">
+          <label htmlFor="view-select">View:</label>
+          <select
+            id="view-select"
+            className="view-selector"
+            value={selectedView}
+            onChange={(e) => onViewChange(e.target.value)}
+          >
+            <option value="signal">Signal View</option>
+            <option value="clusters">Cluster View</option>
+            <option value="multipanel">Multi-Panel View</option>
+            <option value="runtime">Runtime Analysis View</option>
+          </select>
+        </div>
 
         <DatasetSelector
           datasets={datasets}

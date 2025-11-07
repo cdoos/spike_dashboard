@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import VisualizationArea from './components/VisualizationArea';
 import ClusterView from './components/ClusterView';
 import MultiPanelView from './components/MultiPanelView';
+import RuntimeAnalysisView from './components/RuntimeAnalysisView';
 import Upload from './components/Upload';
 import ConfirmDialog from './components/ConfirmDialog';
 import AlgorithmParametersMenu from './components/AlgorithmParametersMenu';
@@ -543,13 +544,15 @@ function App() {
       />
       <div className="main-container">
         {selectedView === 'multipanel' ? (
-          <MultiPanelView 
+          <MultiPanelView
             ref={multiPanelViewRef}
-            selectedDataset={currentDataset} 
+            selectedDataset={currentDataset}
             clusteringResults={clusteringResults}
             selectedAlgorithm={selectedAlgorithm}
             datasetInfo={datasetInfo}
           />
+        ) : selectedView === 'runtime' ? (
+          <RuntimeAnalysisView />
         ) : (
           <>
             {selectedView === 'signal' && (

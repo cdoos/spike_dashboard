@@ -23,20 +23,35 @@ const Header = ({
   onOpenParameters,
   multiPanelViewRef
 }) => {
+  // State to hold current widget list and force re-renders
+  const [widgetList, setWidgetList] = useState([]);
+
   // Check if the selected algorithm supports parameters (TorchBCI Algorithm)
   const selectedAlgo = algorithms?.find(a => a.name === selectedAlgorithm);
   const showParametersButton = selectedView === 'multipanel' && selectedAlgo?.name === 'torchbci_jims' && selectedAlgo?.available;
-  
+
   // Show widget toolbar only in multi-panel view
   const showWidgetToolbar = selectedView === 'multipanel' && multiPanelViewRef?.current;
-  
-  // Get fresh widget list without key prop that causes remounting
-  const getWidgetList = () => {
+
+  // Update widget list when in multipanel view
+  useEffect(() => {
     if (showWidgetToolbar && multiPanelViewRef.current) {
-      return multiPanelViewRef.current.getWidgetList();
+      const updateWidgetList = () => {
+        const newList = multiPanelViewRef.current.getWidgetList();
+        setWidgetList(newList);
+      };
+
+      // Initial update
+      updateWidgetList();
+
+      // Poll for changes (simple solution that works reliably)
+      const interval = setInterval(updateWidgetList, 100);
+
+      return () => clearInterval(interval);
+    } else {
+      setWidgetList([]);
     }
-    return [];
-  };
+  }, [showWidgetToolbar]);
 
   return (
     <div className="header">
@@ -45,7 +60,7 @@ const Header = ({
         
         {showWidgetToolbar && (
           <WidgetToolbar
-            widgets={getWidgetList()}
+            widgets={widgetList}
             onToggleWidget={multiPanelViewRef.current.handleToggleWidget}
             onResetLayout={multiPanelViewRef.current.handleResetLayout}
           />

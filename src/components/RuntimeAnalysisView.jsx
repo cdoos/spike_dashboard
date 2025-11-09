@@ -780,7 +780,7 @@ const RuntimeAnalysisView = () => {
                 fontSize: '0.65rem',
                 padding: '0.25rem 0.6rem',
                 borderRadius: '12px',
-                background: 'linear-gradient(135deg, #40e0d0 0%, #0d9488 100%)',
+                background: 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)',
                 color: '#0f172a',
                 fontWeight: '600'
               }}>

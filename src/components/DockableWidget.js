@@ -182,25 +182,49 @@ const DockableWidget = ({
   // Handle resize start
   const handleResizeStart = (e, direction) => {
     if (!resizable || isMinimized || isMaximized) return;
-    
+
     e.preventDefault();
     e.stopPropagation();
-    
+
     const widget = widgetRef.current;
     if (!widget) return;
-    
+
+    const parent = widget.parentElement;
     const rect = widget.getBoundingClientRect();
-    
+    const computedStyle = window.getComputedStyle(parent);
+
+    // Get current position
+    let currentLeft = parseFloat(computedStyle.left) || 0;
+    let currentTop = parseFloat(computedStyle.top) || 0;
+
+    if (computedStyle.left === 'auto' || isNaN(currentLeft)) {
+      const parentRect = parent.getBoundingClientRect();
+      const containerRect = parent.parentElement.getBoundingClientRect();
+      currentLeft = parentRect.left - containerRect.left;
+    }
+    if (computedStyle.top === 'auto' || isNaN(currentTop)) {
+      const parentRect = parent.getBoundingClientRect();
+      const containerRect = parent.parentElement.getBoundingClientRect();
+      currentTop = parentRect.top - containerRect.top;
+    }
+
     resizeDataRef.current = {
       startX: e.clientX,
       startY: e.clientY,
       startWidth: rect.width,
       startHeight: rect.height,
+      startLeft: currentLeft,
+      startTop: currentTop,
       direction
     };
-    
+
     isResizingRef.current = true;
     setIsResizing(true);
+
+    // Add will-change hints for better performance
+    parent.style.willChange = 'left, top';
+    widget.style.willChange = 'width, height';
+
     document.addEventListener('mousemove', handleResizeMove);
     document.addEventListener('mouseup', handleResizeEnd);
   };
@@ -208,31 +232,66 @@ const DockableWidget = ({
   // Handle resize move
   const handleResizeMove = (e) => {
     if (!isResizingRef.current) return;
-    
+
     const widget = widgetRef.current;
     if (!widget) return;
-    
-    const { startX, startY, startWidth, startHeight, direction } = resizeDataRef.current;
+
+    const parent = widget.parentElement;
+    const { startX, startY, startWidth, startHeight, startLeft, startTop, direction } = resizeDataRef.current;
     const deltaX = e.clientX - startX;
     const deltaY = e.clientY - startY;
-    
+
     let newWidth = startWidth;
     let newHeight = startHeight;
-    
+    let newLeft = startLeft;
+    let newTop = startTop;
+
     // Handle horizontal resizing
     if (direction.includes('e')) {
+      // Resize from right edge - keep left edge fixed
       newWidth = Math.max(200, startWidth + deltaX);
     } else if (direction.includes('w')) {
-      newWidth = Math.max(200, startWidth - deltaX);
+      // Resize from left edge - keep right edge fixed
+      const attemptedWidth = startWidth - deltaX;
+      if (attemptedWidth >= 200) {
+        // Normal resize
+        newWidth = attemptedWidth;
+        newLeft = startLeft + deltaX;
+      } else {
+        // Clamped to minimum - keep right edge at same position
+        newWidth = 200;
+        newLeft = startLeft + startWidth - 200;
+      }
     }
-    
+
     // Handle vertical resizing
     if (direction.includes('s')) {
+      // Resize from bottom edge - keep top edge fixed
       newHeight = Math.max(150, startHeight + deltaY);
     } else if (direction.includes('n')) {
-      newHeight = Math.max(150, startHeight - deltaY);
+      // Resize from top edge - keep bottom edge fixed
+      const attemptedHeight = startHeight - deltaY;
+      if (attemptedHeight >= 150) {
+        // Normal resize
+        newHeight = attemptedHeight;
+        newTop = startTop + deltaY;
+      } else {
+        // Clamped to minimum - keep bottom edge at same position
+        newHeight = 150;
+        newTop = startTop + startHeight - 150;
+      }
     }
-    
+
+    // Batch DOM updates using will-change and transform for smoother animation
+    // Update position properties
+    if (direction.includes('w')) {
+      parent.style.left = `${newLeft}px`;
+    }
+    if (direction.includes('n')) {
+      parent.style.top = `${newTop}px`;
+    }
+
+    // Update size properties in one batch
     widget.style.width = `${newWidth}px`;
     widget.style.height = `${newHeight}px`;
     widget.style.flex = 'none';
@@ -244,7 +303,15 @@ const DockableWidget = ({
     setIsResizing(false);
     document.removeEventListener('mousemove', handleResizeMove);
     document.removeEventListener('mouseup', handleResizeEnd);
-    
+
+    const widget = widgetRef.current;
+    if (widget) {
+      const parent = widget.parentElement;
+      // Remove will-change hints after resize completes
+      parent.style.willChange = 'auto';
+      widget.style.willChange = 'auto';
+    }
+
     // Trigger resize event for content
     window.dispatchEvent(new Event('resize'));
   };

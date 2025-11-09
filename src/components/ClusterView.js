@@ -442,7 +442,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
               width: 1
             }
           },
-          customdata: unselectedIndices.map(idx => ({ clusterIdx, pointIdx: idx, clusterId: cluster.clusterId })),
+          customdata: unselectedIndices.map(idx => ({ clusterIdx, pointIdx: idx + 1, clusterId: cluster.clusterId })),
           hovertemplate: `<b>${clusterName}</b><br>Point: %{customdata.pointIdx}<br>PC1: %{x:.2f}<br>PC2: %{y:.2f}<extra></extra>`,
           showlegend: selectedX.length === 0 // Only show in legend if no selected points
         });
@@ -466,7 +466,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
             },
             symbol: 'circle'
           },
-          customdata: selectedPointIndices.map(idx => ({ clusterIdx, pointIdx: idx, clusterId: cluster.clusterId })),
+          customdata: selectedPointIndices.map(idx => ({ clusterIdx, pointIdx: idx + 1, clusterId: cluster.clusterId })),
           hovertemplate: `<b>${clusterName} (Selected)</b><br>Point: %{customdata.pointIdx}<br>PC1: %{x:.2f}<br>PC2: %{y:.2f}<extra></extra>`
         });
       }
@@ -835,7 +835,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
           <div className={`spike-preview-panel ${overlaySpikes.length > 0 ? 'with-overlay' : ''}`}>
             <div className="preview-info">
               <h3>Spike Preview</h3>
-              <p>Cluster {hoveredPoint.cluster + 1} - Point {hoveredPoint.index + 1}</p>
+              <p>Cluster {hoveredPoint.cluster + 1} - Point {hoveredPoint.index}</p>
               <p>Channel: {selectedChannels[hoveredPoint.cluster]}</p>
               {spikePreview && <p>Time: {spikePreview.spikeTime} samples</p>}
               <p className="click-hint">Click: Add to overlay</p>

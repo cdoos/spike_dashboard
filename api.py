@@ -20,7 +20,17 @@ try:
     print("✓ Successfully imported JimsAlgorithm from local torchbci folder")
 except ImportError as e:
     JIMS_AVAILABLE = False
-    print(f"Warning: torchbci not available. Error: {e}")
+    print(f"Warning: torchbci JimsAlgorithm not available. Error: {e}")
+
+# Try to import Kilosort4 pipeline
+try:
+    from torchbci.algorithms.kilosort_paper_attempt import KS4Pipeline
+    from torchbci.kilosort4.io import load_probe
+    KILOSORT4_AVAILABLE = True
+    print("✓ Successfully imported Kilosort4 from local torchbci folder")
+except ImportError as e:
+    KILOSORT4_AVAILABLE = False
+    print(f"Warning: Kilosort4 not available. Error: {e}")
 
 
 class Config:
@@ -631,7 +641,7 @@ class ClusteringManager:
         print(f"Number of detected spikes: {n_clustered_spikes}")
         
         self._store_clustering_results(clusters, centroids, clusters_meta)
-        
+
         response = {
             'success': True,
             'dataShape': list(data_tensor.shape),
@@ -679,6 +689,233 @@ class ClusteringManager:
             jims_pad_value=int(params.get('pad_value', 0))
         )
     
+    def run_kilosort4(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Run Kilosort4 spike sorting"""
+        if not KILOSORT4_AVAILABLE:
+            raise RuntimeError('Kilosort4 not available')
+
+        if self.dataset_manager.data_array is None:
+            raise RuntimeError('No dataset loaded')
+
+        print(f"\n{'='*60}")
+        print(f"Running Kilosort4 with parameters:")
+        print(f"{'='*60}")
+        print(f"Data Shape: {self.dataset_manager.data_array.shape}")
+
+        # Get parameters
+        probe_path = params.get('probe_path', 'torchbci/data/NeuroPix1_default.mat')
+        sampling_rate = params.get('sampling_rate', 30000)
+
+        # Prepare data - Kilosort4 expects (n_samples, n_channels)
+        data = np.asarray(self.dataset_manager.data_array)
+        if data.shape[0] < data.shape[1]:  # If (channels, samples)
+            data = data.T  # Transpose to (samples, channels)
+
+        print(f"Transposed data shape for Kilosort4: {data.shape}")
+
+        # Save to temporary binary file
+        import tempfile
+        temp_bin = tempfile.NamedTemporaryFile(delete=False, suffix='.bin')
+        data_c = np.ascontiguousarray(data)
+        data_c.tofile(temp_bin.name)
+        temp_bin.close()
+
+        print(f"Saved temporary binary file: {temp_bin.name}")
+
+        # Settings for Kilosort4
+        settings = {
+            "n_chan_bin": data.shape[1],  # number of channels
+            "fs": sampling_rate,
+            "filename": temp_bin.name,
+            "batch_size": 60000,  # Reduce batch size to use less memory (default is higher)
+            "nblocks": 1  # Process in smaller blocks to reduce memory usage
+        }
+
+        # Load probe
+        probe = load_probe(probe_path)
+
+        # Determine device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {device}")
+
+        # Change to temp directory to prevent Kilosort from writing to project dir
+        # This prevents Flask auto-reload from being triggered
+        original_cwd = os.getcwd()
+        temp_results_dir = tempfile.mkdtemp(prefix='kilosort4_')
+
+        try:
+            os.chdir(temp_results_dir)
+            print(f"Running in temporary directory: {temp_results_dir}")
+
+            # Create and run pipeline
+            pipeline = KS4Pipeline(
+                settings=settings,
+                probe=probe,
+                device=device
+            )
+
+            print("Running Kilosort4 pipeline...")
+            with torch.no_grad():
+                out = pipeline()
+        finally:
+            # Always restore working directory
+            os.chdir(original_cwd)
+            # Clean up temp results directory
+            try:
+                import shutil
+                shutil.rmtree(temp_results_dir)
+            except:
+                pass
+
+        # Extract results
+        spike_times_samples = out["st"][:, 0]  # First column is time in samples
+        spike_clusters = out["clu"]  # Cluster assignments
+        n_spikes = out["st"].shape[0]
+        n_clusters = np.unique(spike_clusters).size
+
+        print(f"\n{'='*60}")
+        print(f"Kilosort4 Results:")
+        print(f"{'='*60}")
+        print(f"Number of clusters: {n_clusters}")
+        print(f"Number of detected spikes: {n_spikes}")
+
+        # Store results in format compatible with frontend
+        self._store_kilosort4_results(spike_times_samples, spike_clusters, out)
+
+        # Clean up temporary file
+        try:
+            os.unlink(temp_bin.name)
+        except:
+            pass
+
+        # Build response with full clustering results for frontend
+        cluster_summaries = []
+        for cluster_idx, cluster_data in enumerate(self.clustering_results):
+            cluster_summaries.append({
+                'clusterId': cluster_idx,
+                'numSpikes': len(cluster_data),
+                'channels': list(set([spike['channel'] for spike in cluster_data])) if cluster_data else [],
+                'timeRange': [
+                    min([spike['time'] for spike in cluster_data]) if cluster_data else 0,
+                    max([spike['time'] for spike in cluster_data]) if cluster_data else 0
+                ] if cluster_data else [0, 0]
+            })
+
+        response = {
+            'success': True,
+            'dataShape': list(data.shape),
+            'numClusters': int(n_clusters),
+            'numSpikes': int(n_spikes),
+            'clusters': cluster_summaries,
+            # Include full clustering results for immediate visualization
+            'available': True,
+            'totalSpikes': int(n_spikes),
+            'fullData': self.clustering_results
+        }
+        
+        print(f"Kilosort4 response includes:")
+        print(f"  - available: {response['available']}")
+        print(f"  - fullData clusters: {len(response['fullData'])}")
+        print(f"  - fullData total spikes: {sum(len(c) for c in response['fullData'])}")
+
+        return response
+
+    def _store_kilosort4_results(self, spike_times, spike_clusters, kilosort_output):
+        """Store Kilosort4 results with PCA transformation"""
+        from sklearn.decomposition import PCA
+
+        # Group spikes by cluster
+        unique_clusters = np.unique(spike_clusters)
+        self.clustering_results = []
+
+        print(f"Processing all {len(spike_times)} spikes across {len(unique_clusters)} clusters...")
+
+        # Extract waveforms for PCA - include ALL spikes
+        all_spike_waveforms = []
+        all_spike_channels = []  # Store peak channel for each spike
+        cluster_sizes = []
+
+        for cluster_id in unique_clusters:
+            cluster_mask = spike_clusters == cluster_id
+            cluster_times = spike_times[cluster_mask]
+
+            # Extract waveforms and determine peak channel for ALL spikes in cluster
+            waveforms = []
+            peak_channels = []
+            
+            for spike_time in cluster_times:
+                spike_sample = int(spike_time)
+                # Extract small window around spike (±15 samples = 30 total)
+                window_size = 15
+                if window_size < spike_sample < self.dataset_manager.data_array.shape[1] - window_size:
+                    # Get waveform snippet from all channels
+                    window = self.dataset_manager.data_array[:, spike_sample-window_size:spike_sample+window_size]
+                    
+                    # Determine peak channel: channel with maximum deviation from baseline
+                    # Remove DC offset by subtracting mean of each channel's window
+                    window_baseline_corrected = window - np.mean(window, axis=1, keepdims=True)
+                    # Use maximum absolute value as the signal strength
+                    channel_amplitudes = np.max(np.abs(window_baseline_corrected), axis=1)
+                    peak_channel = int(np.argmax(channel_amplitudes)) + 1  # +1 for 1-indexed
+                    
+                    waveforms.append(window.flatten())
+                    peak_channels.append(peak_channel)
+
+            if len(waveforms) > 0:
+                all_spike_waveforms.extend(waveforms)
+                all_spike_channels.extend(peak_channels)
+                cluster_sizes.append(len(waveforms))
+
+        # Apply PCA with optimization for large datasets
+        if len(all_spike_waveforms) > 0:
+            all_waveforms_array = np.array(all_spike_waveforms)
+            pca = PCA(n_components=2)
+            
+            # Optimize: If we have many spikes, fit PCA on a sample, then transform all
+            if len(all_spike_waveforms) > 5000:
+                print(f"Optimizing PCA: Fitting on 5000 sample spikes, transforming all {len(all_spike_waveforms)}...")
+                # Randomly sample spikes for PCA fitting
+                sample_indices = np.random.choice(len(all_spike_waveforms), 5000, replace=False)
+                sample_waveforms = all_waveforms_array[sample_indices]
+                
+                # Fit PCA on sample (fast)
+                pca.fit(sample_waveforms)
+                
+                # Transform all spikes using the fitted PCA (much faster than fit_transform)
+                pca_coords = pca.transform(all_waveforms_array)
+                print(f"✓ PCA completed in optimized mode")
+            else:
+                print(f"Applying PCA to {len(all_spike_waveforms)} spike waveforms...")
+                pca_coords = pca.fit_transform(all_waveforms_array)
+                print(f"✓ PCA completed")
+
+            # Split PCA coords by cluster
+            start_idx = 0
+            channel_idx = 0
+            for cluster_id, size in zip(unique_clusters, cluster_sizes):
+                cluster_mask = spike_clusters == cluster_id
+                cluster_times = spike_times[cluster_mask]
+                cluster_pca = pca_coords[start_idx:start_idx + size]
+                cluster_channels = all_spike_channels[channel_idx:channel_idx + size]
+
+                cluster_data = []
+                for i, (pca_point, spike_time, peak_channel) in enumerate(zip(cluster_pca, cluster_times[:size], cluster_channels)):
+                    spike_data = {
+                        'x': float(pca_point[0]),
+                        'y': float(pca_point[1]),
+                        'channel': peak_channel,  # Use calculated peak channel
+                        'time': int(spike_time),
+                        'spikeIndex': i
+                    }
+                    cluster_data.append(spike_data)
+
+                self.clustering_results.append(cluster_data)
+                start_idx += size
+                channel_idx += size
+
+        total_spikes_stored = sum(len(cluster) for cluster in self.clustering_results)
+        print(f"✓ Stored Kilosort4 results: {len(self.clustering_results)} clusters, {total_spikes_stored} spikes")
+
     def _store_clustering_results(self, clusters, centroids, clusters_meta):
         """Store clustering results with PCA transformation"""
         from sklearn.decomposition import PCA
@@ -728,10 +965,59 @@ class ClusteringManager:
     
     def get_cluster_data(self, mode: str, channel_mapping: Dict[str, int]) -> Dict[str, Any]:
         """Get cluster data for visualization"""
+        # First check if we have stored clustering results from JimsAlgorithm or Kilosort4
+        if self.clustering_results is not None:
+            print(f"Using stored clustering results from spike sorting algorithm ({len(self.clustering_results)} clusters)")
+            return self._get_stored_clustering_data(channel_mapping)
+        
         if mode == 'real':
             return self._get_real_cluster_data(channel_mapping)
         else:
             return self._get_synthetic_cluster_data(channel_mapping)
+    
+    def _get_stored_clustering_data(self, channel_mapping: Dict[str, int]) -> Dict[str, Any]:
+        """Format stored clustering results for visualization"""
+        clusters = []
+        total_points = 0
+        
+        for cluster_idx, cluster_spikes in enumerate(self.clustering_results):
+            if not cluster_spikes:
+                continue
+            
+            # Extract x, y coordinates and spike times from stored results
+            points = [[spike['x'], spike['y']] for spike in cluster_spikes]
+            spike_times = [spike['time'] for spike in cluster_spikes]
+            
+            # Determine channel from the spike data
+            channels = [spike['channel'] for spike in cluster_spikes]
+            peak_channel = max(set(channels), key=channels.count) if channels else 181
+            
+            # Use channel from mapping if available
+            channel_id = channel_mapping.get(str(cluster_idx), peak_channel)
+            
+            # Generate color for this cluster
+            color = self._generate_cluster_color(cluster_idx, len(self.clustering_results))
+            
+            clusters.append({
+                'clusterId': cluster_idx,
+                'points': points,
+                'spikeTimes': spike_times,
+                'color': color,
+                'channelId': channel_id,
+                'pointCount': len(points)
+            })
+            
+            total_points += len(points)
+        
+        print(f"Prepared {len(clusters)} clusters from stored results for visualization")
+        
+        return {
+            'mode': 'algorithm_results',
+            'clusters': clusters,
+            'numClusters': len(clusters),
+            'totalPoints': total_points,
+            'clusterIds': list(range(len(clusters)))
+        }
     
     def _get_real_cluster_data(self, channel_mapping: Dict[str, int]) -> Dict[str, Any]:
         """Load real cluster data from file"""
@@ -823,7 +1109,7 @@ class ClusteringManager:
         hue = (cluster_idx * golden_ratio) % 1.0
         saturation = 0.7 + (cluster_idx % 3) * 0.1
         value = 0.85 + (cluster_idx % 2) * 0.1
-        
+
         r, g, b = colorsys.hsv_to_rgb(hue, saturation, value)
         return f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
 
@@ -1250,7 +1536,7 @@ class SpikeVisualizerAPI:
             
             statistics = {}
             
-            if algorithm == 'torchbci_jims' and self.clustering_manager.clustering_results is not None:
+            if algorithm in ['torchbci_jims', 'kilosort4'] and self.clustering_manager.clustering_results is not None:
                 statistics = self._calculate_jims_statistics(cluster_ids)
             else:
                 statistics = self._calculate_kilosort_statistics(cluster_ids)
@@ -1357,7 +1643,7 @@ class SpikeVisualizerAPI:
             if not cluster_ids or self.dataset_manager.data_array is None:
                 return jsonify({'waveforms': {}})
             
-            if algorithm == 'torchbci_jims' and self.clustering_manager.clustering_results is not None:
+            if algorithm in ['torchbci_jims', 'kilosort4'] and self.clustering_manager.clustering_results is not None:
                 waveforms_data = self._get_jims_waveforms(cluster_ids, max_waveforms, window_size)
             else:
                 waveforms_data = self._get_kilosort_waveforms(cluster_ids, max_waveforms, window_size)
@@ -1548,7 +1834,7 @@ class SpikeVisualizerAPI:
         spike_times = []
         spike_channels = []
         
-        if algorithm == 'torchbci_jims' and self.clustering_manager.clustering_results is not None:
+        if algorithm in ['torchbci_jims', 'kilosort4'] and self.clustering_manager.clustering_results is not None:
             if cluster_id >= len(self.clustering_manager.clustering_results):
                 return spike_times, spike_channels
             
@@ -1603,16 +1889,39 @@ class SpikeVisualizerAPI:
                 'available': False,
                 'requiresRun': True
             })
-        
+
+        if KILOSORT4_AVAILABLE:
+            algorithms.append({
+                'name': 'kilosort4',
+                'displayName': 'Kilosort4',
+                'description': 'State-of-the-art spike sorting with Kilosort4',
+                'available': True,
+                'requiresRun': True
+            })
+        else:
+            algorithms.append({
+                'name': 'kilosort4',
+                'displayName': 'Kilosort4',
+                'description': 'Kilosort4 spike sorting (not installed)',
+                'available': False,
+                'requiresRun': True
+            })
+
         return jsonify({'algorithms': algorithms})
     
     def run_spike_sorting(self):
         """Run spike sorting algorithm"""
         try:
             request_data = request.get_json() or {}
+            algorithm = request_data.get('algorithm', 'torchbci_jims')
             params = request_data.get('parameters', {})
-            
-            response = self.clustering_manager.run_jims_algorithm(params)
+
+            if algorithm == 'kilosort4':
+                response = self.clustering_manager.run_kilosort4(params)
+            else:
+                # Default to JimsAlgorithm
+                response = self.clustering_manager.run_jims_algorithm(params)
+
             return jsonify(response), 200
         except Exception as e:
             print(f"Error running spike sorting: {e}")
@@ -1677,11 +1986,16 @@ class SpikeVisualizerAPI:
         print("\n1. Migrating existing labels...")
         self.mapping_manager.migrate_existing_labels()
         
-        print("\n2. Checking TorchBCI availability...")
+        print("\n2. Checking spike sorting algorithms...")
         if JIMS_AVAILABLE:
             print("   ✓ TorchBCI JimsAlgorithm available")
         else:
-            print("   ✗ TorchBCI not installed")
+            print("   ✗ TorchBCI JimsAlgorithm not installed")
+
+        if KILOSORT4_AVAILABLE:
+            print("   ✓ Kilosort4 available")
+        else:
+            print("   ✗ Kilosort4 not installed")
         
         print(f"\n3. Loading default dataset: {self.config.DEFAULT_DATASET}")
         self.dataset_manager.load_data()

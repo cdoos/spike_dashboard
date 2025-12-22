@@ -182,6 +182,7 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          algorithm: selectedAlgorithm,
           parameters: algorithmParameters
         })
       });
@@ -189,25 +190,48 @@ function App() {
       if (response.ok) {
         const result = await response.json();
         console.log('\n' + '='.repeat(60));
-        console.log('JimsAlgorithm COMPLETED!');
+        console.log(`${selectedAlgorithm} COMPLETED!`);
         console.log('='.repeat(60));
         console.log('Data Shape:', result.dataShape);
         console.log('Number of Clusters:', result.numClusters);
         console.log('Number of Spikes:', result.numSpikes);
+        console.log('Response has fullData?', !!result.fullData);
+        console.log('Response has available?', result.available);
+        
+        if (result.fullData) {
+          console.log('fullData length:', result.fullData.length);
+          console.log('First cluster sample:', result.fullData[0]?.slice(0, 2));
+        }
+        
         console.log('\nCluster Details:');
         result.clusters.forEach((cluster, i) => {
           console.log(`\nCluster ${cluster.clusterId}:`);
           console.log(`  Spikes: ${cluster.numSpikes}`);
-          console.log(`  Centroid Shape: ${cluster.centroidShape}`);
-          if (cluster.spikeTimes.length > 0) {
+          if (cluster.centroidShape) {
+            console.log(`  Centroid Shape: ${cluster.centroidShape}`);
+          }
+          if (cluster.spikeTimes && cluster.spikeTimes.length > 0) {
             console.log(`  First spike time: ${cluster.spikeTimes[0]}`);
+          }
+          if (cluster.spikeChannels && cluster.spikeChannels.length > 0) {
             console.log(`  First spike channel: ${cluster.spikeChannels[0]}`);
           }
         });
         console.log('='.repeat(60) + '\n');
-        
-        // Fetch clustering results to populate the UI
-        await fetchClusteringResults();
+
+        // Use results directly from the response if available (includes fullData)
+        if (result.available && result.fullData) {
+          console.log('Setting clustering results...');
+          setClusteringResults(result);
+          console.log('✓ Clustering results set directly from algorithm response');
+          console.log('ClusteringResults state should now have', result.fullData.length, 'clusters');
+        } else {
+          console.warn('Result missing fullData or available flag!');
+          console.log('  - available:', result.available);
+          console.log('  - fullData:', !!result.fullData);
+          // Fallback: fetch clustering results separately
+          await fetchClusteringResults();
+        }
       } else {
         const error = await response.json();
         console.error('Error running algorithm:', error);
@@ -621,6 +645,7 @@ function App() {
         onClose={handleCloseParameters}
         parameters={algorithmParameters}
         onSave={handleSaveParameters}
+        algorithm={selectedAlgorithm}
       />
     </div>
   );

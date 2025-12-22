@@ -16,10 +16,14 @@ const DimensionalityReductionPanel = ({
   const [previewPosition, setPreviewPosition] = useState('right'); // 'left' or 'right'
   const plotData = useMemo(() => {
     console.log(`[${selectedAlgorithm}] Rendering PCA plot for clusters:`, selectedClusters);
+    console.log('  - clusteringResults:', !!clusteringResults);
+    console.log('  - clusteringResults.available:', clusteringResults?.available);
+    console.log('  - fullData:', !!clusteringResults?.fullData);
+    console.log('  - fullData length:', clusteringResults?.fullData?.length);
     
-    // Use TorchBCI JimsAlgorithm results if available
-    if (selectedAlgorithm === 'torchbci_jims' && clusteringResults && clusteringResults.available) {
-      console.log('Using TorchBCI JimsAlgorithm results for PCA plot');
+    // Use algorithm results if available (TorchBCI JimsAlgorithm or Kilosort4)
+    if ((selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') && clusteringResults && clusteringResults.available) {
+      console.log(`Using ${selectedAlgorithm} results for PCA plot`);
       
       const traces = [];
       
@@ -107,6 +111,10 @@ const DimensionalityReductionPanel = ({
         }
       });
       
+      console.log(`Created ${traces.length} traces for ${selectedClusters.length} clusters`);
+      if (traces.length > 0) {
+        console.log(`First trace has ${traces[0].x?.length || 0} points`);
+      }
       return traces;
     }
     
@@ -199,6 +207,10 @@ const DimensionalityReductionPanel = ({
       }
     });
 
+    console.log(`Created ${traces.length} traces from clusterData for ${clustersToShow.length} clusters`);
+    if (traces.length > 0) {
+      console.log(`First trace has ${traces[0].x?.length || 0} points`);
+    }
     return traces;
   }, [clusterData, selectedClusters, selectedSpike, clusteringResults, selectedAlgorithm]);
 
@@ -210,7 +222,7 @@ const DimensionalityReductionPanel = ({
       // Get spike time and channel from cluster data
       let spikeTime, channelId;
       
-      if (selectedAlgorithm === 'torchbci_jims' && clusteringResults && clusteringResults.available) {
+      if ((selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') && clusteringResults && clusteringResults.available) {
         const spike = clusteringResults.fullData[clusterId][pointIdx];
         spikeTime = spike.time;
         channelId = spike.channel;
@@ -390,7 +402,7 @@ const DimensionalityReductionPanel = ({
         </div>
       )}
       <div className="dim-reduction-plot-container">
-        {((selectedAlgorithm === 'torchbci_jims' && clusteringResults && clusteringResults.available) ||
+        {(((selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') && clusteringResults && clusteringResults.available) ||
           (clusterData && clusterData.clusters && clusterData.clusters.length > 0)) ? (
           <Plot
             data={plotData}

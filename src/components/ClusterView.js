@@ -20,17 +20,40 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
 
   // Determine which data source to use based on selected algorithm
   useEffect(() => {
-    // TorchBCI JimsAlgorithm - only use data if Run button was clicked
-    if (selectedAlgorithm === 'torchbci_jims') {
+    // Algorithm results (TorchBCI JimsAlgorithm or Kilosort4) - only use data if Run button was clicked
+    if (selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') {
       if (clusteringResults && clusteringResults.available) {
-        console.log('Using TorchBCI JimsAlgorithm results');
+        console.log(`Using ${selectedAlgorithm} results`);
         setMode('algorithm');
         setClusterData(convertClusteringResultsToClusterData(clusteringResults));
       } else {
-        console.log('Waiting for TorchBCI JimsAlgorithm to run...');
+        console.log(`Waiting for ${selectedAlgorithm} to run...`);
         setClusterData(null); // Clear any previous data
       }
-    } 
+    }
+    // Kilosort4 - only use data if Run button was clicked
+    else if (selectedAlgorithm === 'kilosort4') {
+      console.log('ClusterView: Kilosort4 selected');
+      console.log('  - clusteringResults:', !!clusteringResults);
+      console.log('  - clusteringResults.available:', clusteringResults?.available);
+      console.log('  - clusteringResults.fullData:', !!clusteringResults?.fullData);
+      console.log('  - fullData length:', clusteringResults?.fullData?.length);
+      
+      if (clusteringResults && clusteringResults.available) {
+        console.log('Using Kilosort4 results - converting to cluster data...');
+        try {
+          const converted = convertClusteringResultsToClusterData(clusteringResults);
+          console.log('Conversion successful:', converted.numClusters, 'clusters');
+          setMode('algorithm');
+          setClusterData(converted);
+        } catch (error) {
+          console.error('Error converting clustering results:', error);
+        }
+      } else {
+        console.log('Waiting for Kilosort4 to run...');
+        setClusterData(null); // Clear any previous data
+      }
+    }
     // Preprocessed Kilosort - fetch from API (old behavior)
     else if (selectedAlgorithm === 'preprocessed_kilosort') {
       console.log('Using Preprocessed Kilosort data');
@@ -156,8 +179,8 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
 
       // Get channel ID based on mode
       let channelId;
-      if (mode === 'algorithm' && selectedAlgorithm === 'torchbci_jims') {
-        // For TorchBCI JimsAlgorithm, channel comes from the clustering results
+      if (mode === 'algorithm' && (selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4')) {
+        // For algorithm results, channel comes from the clustering results
         channelId = cluster.spikeChannels && cluster.spikeChannels[pointIndex] 
           ? cluster.spikeChannels[pointIndex] 
           : 181;
@@ -639,16 +662,17 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
     fetchClusterData();
   };
 
-  // Show message if waiting for TorchBCI JimsAlgorithm to run
-  if (selectedAlgorithm === 'torchbci_jims' && (!clusterData || !clusteringResults)) {
+  // Show message if waiting for algorithm to run
+  if ((selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') && (!clusterData || !clusteringResults)) {
+    const algorithmName = selectedAlgorithm === 'kilosort4' ? 'Kilosort4' : 'TorchBCI JimsAlgorithm';
     return (
       <div className="cluster-view">
         <div className="cluster-header">
           <h2>Spike Cluster Visualization</h2>
         </div>
-        <div className="cluster-content" style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
+        <div className="cluster-content" style={{
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           height: '100%',
           fontSize: '1.2rem',
@@ -657,7 +681,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
           <div style={{ textAlign: 'center' }}>
             <p>No clustering results available</p>
             <p style={{ fontSize: '0.9rem', marginTop: '1rem' }}>
-              Click the <strong>Run</strong> button in the header to run TorchBCI JimsAlgorithm
+              Click the <strong>Run</strong> button in the header to run {algorithmName}
             </p>
           </div>
         </div>

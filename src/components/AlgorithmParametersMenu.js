@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './AlgorithmParametersMenu.css';
 
-const AlgorithmParametersMenu = ({ isOpen, onClose, parameters, onSave }) => {
+const AlgorithmParametersMenu = ({ isOpen, onClose, parameters, onSave, algorithm }) => {
   const [localParams, setLocalParams] = useState(parameters);
   const menuRef = useRef(null);
 
@@ -40,22 +40,31 @@ const AlgorithmParametersMenu = ({ isOpen, onClose, parameters, onSave }) => {
   };
 
   const handleReset = () => {
-    // Reset to default values
-    const defaults = {
-      window_size: 3,
-      threshold: 36,
-      frame_size: 13,
-      normalize: 'zscore',
-      sort_by: 'value',
-      leniency_channel: 7,
-      leniency_time: 32,
-      similarity_mode: 'cosine',
-      outlier_threshold: 0.8,
-      n_clusters: 8,
-      cluster_feature_size: 7,
-      n_jims_features: 7,
-      pad_value: 0
-    };
+    // Reset to default values based on algorithm
+    let defaults;
+    if (algorithm === 'kilosort4') {
+      defaults = {
+        probe_path: 'torchbci/data/NeuroPix1_default.mat',
+        sampling_rate: 30000
+      };
+    } else {
+      // TorchBCI Jims defaults
+      defaults = {
+        window_size: 3,
+        threshold: 36,
+        frame_size: 13,
+        normalize: 'zscore',
+        sort_by: 'value',
+        leniency_channel: 7,
+        leniency_time: 32,
+        similarity_mode: 'cosine',
+        outlier_threshold: 0.8,
+        n_clusters: 8,
+        cluster_feature_size: 7,
+        n_jims_features: 7,
+        pad_value: 0
+      };
+    }
     setLocalParams(defaults);
   };
 
@@ -68,15 +77,43 @@ const AlgorithmParametersMenu = ({ isOpen, onClose, parameters, onSave }) => {
         </div>
         
         <div className="params-content">
-          <div className="param-group">
-            <label>Window Size</label>
-            <input
-              type="number"
-              value={localParams.window_size}
-              onChange={(e) => handleChange('window_size', parseInt(e.target.value))}
-              min="1"
-            />
-          </div>
+          {algorithm === 'kilosort4' ? (
+            // Kilosort4 parameters
+            <>
+              <div className="param-group">
+                <label>Probe Path</label>
+                <input
+                  type="text"
+                  value={localParams.probe_path || ''}
+                  onChange={(e) => handleChange('probe_path', e.target.value)}
+                  placeholder="torchbci/data/NeuroPix1_default.mat"
+                />
+                <small>Path to probe configuration file</small>
+              </div>
+
+              <div className="param-group">
+                <label>Sampling Rate (Hz)</label>
+                <input
+                  type="number"
+                  value={localParams.sampling_rate || 30000}
+                  onChange={(e) => handleChange('sampling_rate', parseInt(e.target.value))}
+                  min="1000"
+                />
+                <small>Recording sampling rate</small>
+              </div>
+            </>
+          ) : (
+            // TorchBCI Jims parameters
+            <>
+              <div className="param-group">
+                <label>Window Size</label>
+                <input
+                  type="number"
+                  value={localParams.window_size}
+                  onChange={(e) => handleChange('window_size', parseInt(e.target.value))}
+                  min="1"
+                />
+              </div>
 
           <div className="param-group">
             <label>Threshold</label>
@@ -193,14 +230,16 @@ const AlgorithmParametersMenu = ({ isOpen, onClose, parameters, onSave }) => {
             />
           </div>
 
-          <div className="param-group">
-            <label>Pad Value</label>
-            <input
-              type="number"
-              value={localParams.pad_value}
-              onChange={(e) => handleChange('pad_value', parseInt(e.target.value))}
-            />
-          </div>
+              <div className="param-group">
+                <label>Pad Value</label>
+                <input
+                  type="number"
+                  value={localParams.pad_value}
+                  onChange={(e) => handleChange('pad_value', parseInt(e.target.value))}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="params-footer">

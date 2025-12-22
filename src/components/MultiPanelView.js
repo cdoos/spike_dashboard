@@ -95,10 +95,10 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
     try {
       console.log(`[${selectedAlgorithm}] Fetching cluster list...`);
       
-      // Use TorchBCI JimsAlgorithm results if available
-      if (selectedAlgorithm === 'torchbci_jims') {
+      // Use algorithm results if available (TorchBCI JimsAlgorithm or Kilosort4)
+      if (selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') {
         if (clusteringResults && clusteringResults.available) {
-          console.log('Using TorchBCI JimsAlgorithm results for cluster list');
+          console.log(`Using ${selectedAlgorithm} results for cluster list`);
           
           // Convert clustering results to cluster list format
           const clusterList = clusteringResults.clusters.map((clusterSummary) => ({
@@ -107,9 +107,9 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
           }));
           
           setClusters(clusterList);
-          console.log(`Loaded ${clusterList.length} clusters from JimsAlgorithm`);
+          console.log(`Loaded ${clusterList.length} clusters from ${selectedAlgorithm}`);
         } else {
-          console.log('TorchBCI JimsAlgorithm selected but not run yet - keeping cluster list empty');
+          console.log(`${selectedAlgorithm} selected but not run yet - keeping cluster list empty`);
           setClusters([]);
         }
         return;
@@ -149,9 +149,9 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
     try {
       console.log(`[${selectedAlgorithm}] Fetching spikes for clusters:`, selectedClusters);
       
-      // Use TorchBCI JimsAlgorithm results if available
-      if (selectedAlgorithm === 'torchbci_jims' && clusteringResults && clusteringResults.available) {
-        console.log('Using TorchBCI JimsAlgorithm results for spike list');
+      // Use algorithm results if available (TorchBCI JimsAlgorithm or Kilosort4)
+      if ((selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') && clusteringResults && clusteringResults.available) {
+        console.log(`Using ${selectedAlgorithm} results for spike list`);
         
         const allSpikes = [];
         
@@ -278,8 +278,8 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
     const spikeTimeNum = Number(spike.time);
 
     // Find the point index in the appropriate data structure
-    if (selectedAlgorithm === 'torchbci_jims' && clusteringResults && clusteringResults.available) {
-      // For TorchBCI, search in clusteringResults
+    if ((selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') && clusteringResults && clusteringResults.available) {
+      // For algorithm results, search in clusteringResults
       if (clusteringResults.fullData && clusteringResults.fullData[spike.clusterId]) {
         const clusterSpikes = clusteringResults.fullData[spike.clusterId];
         // Use tolerant comparison to handle floating point precision issues
@@ -326,8 +326,8 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
     let spikeTime = null;
 
     // Get spike time from the appropriate data structure
-    if (selectedAlgorithm === 'torchbci_jims' && clusteringResults && clusteringResults.available) {
-      // For TorchBCI, get from clusteringResults
+    if ((selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') && clusteringResults && clusteringResults.available) {
+      // For algorithm results, get from clusteringResults
       if (clusteringResults.fullData && clusteringResults.fullData[clusterId] && clusteringResults.fullData[clusterId][pointIndex]) {
         spikeTime = clusteringResults.fullData[clusterId][pointIndex].time;
       }

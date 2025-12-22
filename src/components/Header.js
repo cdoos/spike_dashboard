@@ -26,9 +26,11 @@ const Header = ({
   // State to hold current widget list and force re-renders
   const [widgetList, setWidgetList] = useState([]);
 
-  // Check if the selected algorithm supports parameters (TorchBCI Algorithm)
+  // Check if the selected algorithm supports parameters (TorchBCI Algorithm or Kilosort4)
   const selectedAlgo = algorithms?.find(a => a.name === selectedAlgorithm);
-  const showParametersButton = selectedView === 'multipanel' && selectedAlgo?.name === 'torchbci_jims' && selectedAlgo?.available;
+  const showParametersButton = selectedView === 'multipanel' &&
+    (selectedAlgo?.name === 'torchbci_jims' || selectedAlgo?.name === 'kilosort4') &&
+    selectedAlgo?.available;
 
   // Show widget toolbar only in multi-panel view
   const showWidgetToolbar = selectedView === 'multipanel' && multiPanelViewRef?.current;

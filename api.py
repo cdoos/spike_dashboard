@@ -751,6 +751,7 @@ class ClusteringManager:
             pipeline = KS4Pipeline(
                 settings=settings,
                 probe=probe,
+                results_dir=temp_results_dir,
                 device=device
             )
 

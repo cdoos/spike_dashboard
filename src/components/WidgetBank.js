@@ -1,0 +1,251 @@
+import React, { useState, useRef, useEffect } from 'react';
+import './WidgetBank.css';
+
+// Widget definitions with icons and metadata
+const WIDGET_DEFINITIONS = {
+  clusterList: {
+    id: 'clusterList',
+    name: 'Cluster List',
+    description: 'View and select neuron clusters',
+    icon: '📋',
+    category: 'data',
+    defaultSize: { width: 180, height: 350 }
+  },
+  spikeList: {
+    id: 'spikeList',
+    name: 'Spike List Table',
+    description: 'Browse spike events chronologically',
+    icon: '⚡',
+    category: 'data',
+    defaultSize: { width: 200, height: 350 }
+  },
+  clusterStats: {
+    id: 'clusterStats',
+    name: 'Cluster Statistics',
+    description: 'ISI violations, spike counts, quality metrics',
+    icon: '📊',
+    category: 'analysis',
+    defaultSize: { width: 200, height: 350 }
+  },
+  signalView: {
+    id: 'signalView',
+    name: 'Signal View',
+    description: 'Raw/filtered neural signal traces',
+    icon: '📈',
+    category: 'visualization',
+    defaultSize: { width: 600, height: 350 }
+  },
+  dimReduction: {
+    id: 'dimReduction',
+    name: 'PCA Plot',
+    description: 'Dimensionality reduction visualization',
+    icon: '🎯',
+    category: 'visualization',
+    defaultSize: { width: 500, height: 400 }
+  },
+  waveform: {
+    id: 'waveform',
+    name: 'Waveform View',
+    description: 'Spike waveform overlays',
+    icon: '〰️',
+    category: 'visualization',
+    defaultSize: { width: 500, height: 400 }
+  }
+};
+
+const CATEGORIES = {
+  data: { name: 'Data Tables', icon: '📁' },
+  analysis: { name: 'Analysis', icon: '🔬' },
+  visualization: { name: 'Visualization', icon: '👁️' }
+};
+
+const WidgetBank = ({ 
+  isOpen, 
+  onClose, 
+  widgetStates, 
+  onAddWidget,
+  onToggleWidget 
+}) => {
+  const [draggedWidget, setDraggedWidget] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const bankRef = useRef(null);
+
+  // Filter widgets based on search and category
+  const filteredWidgets = Object.values(WIDGET_DEFINITIONS).filter(widget => {
+    const matchesSearch = widget.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          widget.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || widget.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Group widgets by category
+  const groupedWidgets = filteredWidgets.reduce((acc, widget) => {
+    const category = widget.category;
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(widget);
+    return acc;
+  }, {});
+
+  // Handle drag start
+  const handleDragStart = (e, widget) => {
+    setDraggedWidget(widget);
+    e.dataTransfer.setData('application/json', JSON.stringify(widget));
+    e.dataTransfer.effectAllowed = 'copy';
+    
+    // Create custom drag image
+    const dragImage = document.createElement('div');
+    dragImage.className = 'widget-drag-preview';
+    dragImage.innerHTML = `
+      <span class="drag-icon">${widget.icon}</span>
+      <span class="drag-name">${widget.name}</span>
+    `;
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 50, 25);
+    
+    // Cleanup drag image after a short delay
+    setTimeout(() => {
+      document.body.removeChild(dragImage);
+    }, 0);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedWidget(null);
+  };
+
+  // Check if widget is already visible
+  const isWidgetVisible = (widgetId) => {
+    return widgetStates[widgetId]?.visible;
+  };
+
+  // Handle click to add/toggle widget
+  const handleWidgetClick = (widget) => {
+    if (isWidgetVisible(widget.id)) {
+      // Widget is visible, toggle it off
+      onToggleWidget(widget.id);
+    } else {
+      // Widget is hidden, add/show it
+      onAddWidget(widget);
+    }
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (bankRef.current && !bankRef.current.contains(e.target) && 
+          !e.target.closest('.widget-bank-toggle')) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="widget-bank-overlay">
+      <div className="widget-bank" ref={bankRef}>
+        <div className="widget-bank-header">
+          <h3>
+            <span className="header-icon">🧩</span>
+            Widget Bank
+          </h3>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
+
+        <div className="widget-bank-search">
+          <input
+            type="text"
+            placeholder="Search widgets..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <span className="search-icon">🔍</span>
+        </div>
+
+        <div className="widget-bank-categories">
+          <button
+            className={`category-btn ${selectedCategory === 'all' ? 'active' : ''}`}
+            onClick={() => setSelectedCategory('all')}
+          >
+            All
+          </button>
+          {Object.entries(CATEGORIES).map(([key, cat]) => (
+            <button
+              key={key}
+              className={`category-btn ${selectedCategory === key ? 'active' : ''}`}
+              onClick={() => setSelectedCategory(key)}
+            >
+              <span className="cat-icon">{cat.icon}</span>
+              {cat.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="widget-bank-content">
+          <p className="drag-hint">
+            <span className="hint-icon">💡</span>
+            Drag widgets to the canvas or click to toggle
+          </p>
+
+          {Object.entries(groupedWidgets).map(([category, widgets]) => (
+            <div key={category} className="widget-category-group">
+              <h4 className="category-title">
+                <span>{CATEGORIES[category]?.icon}</span>
+                {CATEGORIES[category]?.name || category}
+              </h4>
+              <div className="widget-items">
+                {widgets.map(widget => {
+                  const visible = isWidgetVisible(widget.id);
+                  return (
+                    <div
+                      key={widget.id}
+                      className={`widget-bank-item ${visible ? 'active' : ''} ${draggedWidget?.id === widget.id ? 'dragging' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, widget)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => handleWidgetClick(widget)}
+                    >
+                      <div className="widget-item-icon">{widget.icon}</div>
+                      <div className="widget-item-info">
+                        <span className="widget-item-name">{widget.name}</span>
+                        <span className="widget-item-desc">{widget.description}</span>
+                      </div>
+                      <div className={`widget-status ${visible ? 'visible' : 'hidden'}`}>
+                        {visible ? '✓' : '+'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {filteredWidgets.length === 0 && (
+            <div className="no-results">
+              <span className="no-results-icon">🔎</span>
+              <p>No widgets found</p>
+            </div>
+          )}
+        </div>
+
+        <div className="widget-bank-footer">
+          <span className="widget-count">
+            {Object.values(widgetStates).filter(w => w.visible).length} / {Object.keys(WIDGET_DEFINITIONS).length} active
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Export widget definitions for use in other components
+export { WIDGET_DEFINITIONS, CATEGORIES };
+export default WidgetBank;
+

@@ -1,6 +1,29 @@
+# =============================================================================
+# Spike Dashboard - Python Dependencies
+# =============================================================================
+# Install with: pip install -r requirements.txt
+# Or use setup_env.sh for complete environment setup
+# =============================================================================
+
+# Web Framework
 Flask==2.3.3
 Flask-CORS==4.0.0
+Werkzeug==2.3.7
+
+# Scientific Computing
 numpy>=1.26.0
 scipy>=1.11.4
-Werkzeug==2.3.7
+scikit-learn>=1.3.0
+
+# Deep Learning (install via setup_env.sh for CUDA support)
 torch
+torchaudio
+
+# Utilities
+tqdm>=4.66.0
+h5py>=3.9.0
+pandas>=2.0.0
+matplotlib>=3.8.0
+
+# Note: torchbci is installed from local directory via:
+#   pip install -e ./torchbci

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import DatasetSelector from './DatasetSelector';
-import WidgetToolbar from './WidgetToolbar';
+import ViewManager from './ViewManager';
 import './Header.css';
 
 const Header = ({
@@ -23,8 +23,8 @@ const Header = ({
   onOpenParameters,
   multiPanelViewRef
 }) => {
-  // State to hold current widget list and force re-renders
-  const [widgetList, setWidgetList] = useState([]);
+  const [isWidgetBankOpen, setIsWidgetBankOpen] = useState(false);
+  const [widgetStates, setWidgetStates] = useState({});
 
   // Check if the selected algorithm supports parameters (TorchBCI Algorithm or Kilosort4)
   const selectedAlgo = algorithms?.find(a => a.name === selectedAlgorithm);
@@ -32,40 +32,72 @@ const Header = ({
     (selectedAlgo?.name === 'torchbci_jims' || selectedAlgo?.name === 'kilosort4') &&
     selectedAlgo?.available;
 
-  // Show widget toolbar only in multi-panel view
-  const showWidgetToolbar = selectedView === 'multipanel' && multiPanelViewRef?.current;
+  // Show widget bank button only in multi-panel view
+  const showMultiPanelControls = selectedView === 'multipanel' && multiPanelViewRef?.current;
 
-  // Update widget list when in multipanel view
+  // Sync states from MultiPanelView
   useEffect(() => {
-    if (showWidgetToolbar && multiPanelViewRef.current) {
-      const updateWidgetList = () => {
-        const newList = multiPanelViewRef.current.getWidgetList();
-        setWidgetList(newList);
+    if (showMultiPanelControls && multiPanelViewRef.current) {
+      const syncState = () => {
+        if (multiPanelViewRef.current.isWidgetBankOpen !== undefined) {
+          setIsWidgetBankOpen(multiPanelViewRef.current.isWidgetBankOpen);
+        }
+        if (multiPanelViewRef.current.widgetStates) {
+          setWidgetStates(multiPanelViewRef.current.widgetStates);
+        }
       };
-
-      // Initial update
-      updateWidgetList();
-
-      // Poll for changes (simple solution that works reliably)
-      const interval = setInterval(updateWidgetList, 100);
-
+      syncState();
+      const interval = setInterval(syncState, 100);
       return () => clearInterval(interval);
-    } else {
-      setWidgetList([]);
     }
-  }, [showWidgetToolbar]);
+  }, [showMultiPanelControls]);
+
+  // Handle widget bank toggle
+  const handleWidgetBankToggle = () => {
+    if (multiPanelViewRef?.current?.setIsWidgetBankOpen) {
+      multiPanelViewRef.current.setIsWidgetBankOpen(!isWidgetBankOpen);
+      setIsWidgetBankOpen(!isWidgetBankOpen);
+    }
+  };
+
+  // Handle view change from ViewManager
+  const handleLayoutViewChange = useCallback((newWidgetStates) => {
+    if (multiPanelViewRef?.current?.handleViewChange) {
+      multiPanelViewRef.current.handleViewChange(newWidgetStates);
+    }
+  }, [multiPanelViewRef]);
+
+  // Get widget positions and sizes
+  const getWidgetPositionsAndSizes = useCallback(() => {
+    if (multiPanelViewRef?.current?.getWidgetPositionsAndSizes) {
+      return multiPanelViewRef.current.getWidgetPositionsAndSizes();
+    }
+    return {};
+  }, [multiPanelViewRef]);
 
   return (
     <div className="header">
       <div className="header-left">
         <h1>Spike Visualization Dashboard</h1>
         
-        {showWidgetToolbar && (
-          <WidgetToolbar
-            widgets={widgetList}
-            onToggleWidget={multiPanelViewRef.current.handleToggleWidget}
-            onResetLayout={multiPanelViewRef.current.handleResetLayout}
-          />
+        {showMultiPanelControls && (
+          <>
+            <button
+              className={`widget-bank-toggle ${isWidgetBankOpen ? 'active' : ''}`}
+              onClick={handleWidgetBankToggle}
+              title="Open Widget Bank"
+            >
+              <span className="widget-bank-icon">🧩</span>
+              <span className="widget-bank-label">Widgets</span>
+              <span className={`widget-bank-arrow ${isWidgetBankOpen ? 'open' : ''}`}>▼</span>
+            </button>
+
+            <ViewManager
+              currentWidgetStates={widgetStates}
+              onViewChange={handleLayoutViewChange}
+              getWidgetPositionsAndSizes={getWidgetPositionsAndSizes}
+            />
+          </>
         )}
       </div>
 
@@ -186,4 +218,3 @@ const Header = ({
 };
 
 export default Header;
-

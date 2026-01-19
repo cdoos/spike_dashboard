@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
 import ClusterListTable from './ClusterListTable';
 import SpikeListTable from './SpikeListTable';
 import ClusterStatisticsWindow from './ClusterStatisticsWindow';
@@ -7,7 +7,19 @@ import DimensionalityReductionPanel from './DimensionalityReductionPanel';
 import WaveformSingleChannelView from './WaveformSingleChannelView';
 import WaveformNeighboringChannelsView from './WaveformNeighboringChannelsView';
 import DockableWidget from './DockableWidget';
+import WidgetBank from './WidgetBank';
+import { STORAGE_KEY, CURRENT_VIEW_KEY } from './ViewManager';
 import './MultiPanelView.css';
+
+// Default widget states
+const DEFAULT_WIDGET_STATES = {
+  clusterList: { visible: true, minimized: false, maximized: false, order: 1, position: null, size: null },
+  spikeList: { visible: true, minimized: false, maximized: false, order: 2, position: null, size: null },
+  clusterStats: { visible: true, minimized: false, maximized: false, order: 3, position: null, size: null },
+  signalView: { visible: true, minimized: false, maximized: false, order: 4, position: null, size: null },
+  dimReduction: { visible: true, minimized: false, maximized: false, order: 5, position: null, size: null },
+  waveform: { visible: true, minimized: false, maximized: false, order: 6, position: null, size: null }
+};
 
 const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selectedAlgorithm, datasetInfo }, ref) => {
   // State management
@@ -22,17 +34,172 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
   const [signalData, setSignalData] = useState(null);
   const [timeRange, setTimeRange] = useState({ start: 0, end: 1000 });
   const [highlightedSpikes, setHighlightedSpikes] = useState([]);
-  const [waveformViewMode, setWaveformViewMode] = useState('single'); // 'single' or 'neighboring'
+  const [waveformViewMode, setWaveformViewMode] = useState('single');
 
-  // Widget state management
-  const [widgetStates, setWidgetStates] = useState({
-    clusterList: { visible: true, minimized: false, maximized: false, order: 1 },
-    spikeList: { visible: true, minimized: false, maximized: false, order: 2 },
-    clusterStats: { visible: true, minimized: false, maximized: false, order: 3 },
-    signalView: { visible: true, minimized: false, maximized: false, order: 4 },
-    dimReduction: { visible: true, minimized: false, maximized: false, order: 5 },
-    waveform: { visible: true, minimized: false, maximized: false, order: 6 }
+  // Widget Bank state
+  const [isWidgetBankOpen, setIsWidgetBankOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dropPosition, setDropPosition] = useState(null);
+  const containerRef = useRef(null);
+
+  // Widget state management with positions
+  const [widgetStates, setWidgetStates] = useState(() => {
+    // Try to load saved view on mount
+    const savedCurrentView = localStorage.getItem(CURRENT_VIEW_KEY);
+    const savedViews = localStorage.getItem(STORAGE_KEY);
+    
+    if (savedCurrentView && savedViews) {
+      try {
+        const views = JSON.parse(savedViews);
+        const currentView = views.find(v => v.id === savedCurrentView);
+        if (currentView && currentView.widgetStates) {
+          return currentView.widgetStates;
+        }
+      } catch (e) {
+        console.error('Error loading saved widget states:', e);
+      }
+    }
+    return DEFAULT_WIDGET_STATES;
   });
+
+  // Track if initial load is complete
+  const [isInitialized, setIsInitialized] = useState(false);
+  const lastSavedPositionsRef = useRef(null);
+
+  // Mark as initialized after first render
+  useEffect(() => {
+    const timer = setTimeout(() => setIsInitialized(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Helper function to get current positions and sizes from DOM
+  const getCurrentPositionsAndSizes = useCallback(() => {
+    const positionsAndSizes = {};
+    const panelClassMap = {
+      clusterList: 'panel-cluster-list',
+      spikeList: 'panel-spike-list',
+      clusterStats: 'panel-cluster-stats',
+      signalView: 'panel-signal-view',
+      dimReduction: 'panel-dim-reduction',
+      waveform: 'panel-waveform'
+    };
+    
+    Object.keys(widgetStates).forEach(widgetId => {
+      if (!widgetStates[widgetId].visible) {
+        positionsAndSizes[widgetId] = { position: null, size: null };
+        return;
+      }
+      
+      const panelClass = panelClassMap[widgetId];
+      const panel = document.querySelector(`.${panelClass}`);
+      const widget = panel?.querySelector('.dockable-widget');
+      
+      if (panel && widget) {
+        const panelStyle = window.getComputedStyle(panel);
+        const widgetRect = widget.getBoundingClientRect();
+        const left = parseFloat(panelStyle.left);
+        const top = parseFloat(panelStyle.top);
+        
+        positionsAndSizes[widgetId] = {
+          position: {
+            left: isNaN(left) ? null : Math.round(left),
+            top: isNaN(top) ? null : Math.round(top)
+          },
+          size: {
+            width: Math.round(widgetRect.width),
+            height: Math.round(widgetRect.height)
+          }
+        };
+      }
+    });
+    
+    return positionsAndSizes;
+  }, [widgetStates]);
+
+  // Helper function to save current state to localStorage
+  const saveCurrentState = useCallback(() => {
+    const savedCurrentView = localStorage.getItem(CURRENT_VIEW_KEY);
+    // Don't save changes to the default view
+    if (!savedCurrentView || savedCurrentView === 'default') return;
+    
+    try {
+      const savedViews = localStorage.getItem(STORAGE_KEY);
+      if (!savedViews) return;
+      
+      const views = JSON.parse(savedViews);
+      const viewIndex = views.findIndex(v => v.id === savedCurrentView);
+      
+      if (viewIndex === -1) return;
+      
+      const positionsAndSizes = getCurrentPositionsAndSizes();
+      
+      // Build updated widget states with positions
+      const updatedWidgetStates = {};
+      Object.keys(widgetStates).forEach(key => {
+        updatedWidgetStates[key] = {
+          ...widgetStates[key],
+          position: positionsAndSizes[key]?.position || null,
+          size: positionsAndSizes[key]?.size || null
+        };
+      });
+      
+      // Check if anything actually changed
+      const newPositionsStr = JSON.stringify(positionsAndSizes);
+      if (lastSavedPositionsRef.current === newPositionsStr) {
+        return; // No changes, skip save
+      }
+      lastSavedPositionsRef.current = newPositionsStr;
+      
+      // Update the view in localStorage
+      views[viewIndex] = {
+        ...views[viewIndex],
+        widgetStates: updatedWidgetStates,
+        updatedAt: new Date().toISOString()
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(views));
+    } catch (e) {
+      console.error('Error auto-saving view:', e);
+    }
+  }, [widgetStates, getCurrentPositionsAndSizes]);
+
+  // Auto-save on widget state changes (visibility, minimize, maximize)
+  useEffect(() => {
+    if (!isInitialized) return;
+    saveCurrentState();
+  }, [widgetStates, isInitialized, saveCurrentState]);
+
+  // Periodic auto-save to capture position/size changes from drag/resize
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    // Save every 2 seconds if there are changes
+    const intervalId = setInterval(() => {
+      saveCurrentState();
+    }, 2000);
+    
+    // Also save on mouseup (when user finishes dragging/resizing)
+    const handleMouseUp = () => {
+      setTimeout(saveCurrentState, 100);
+    };
+    
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isInitialized, saveCurrentState]);
+
+  // Save before page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveCurrentState();
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [saveCurrentState]);
 
   // Clear all data when algorithm changes
   useEffect(() => {
@@ -67,7 +234,6 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
   // Cleanup Plotly instances on unmount
   useEffect(() => {
     return () => {
-      // Clean up Plotly instances to prevent memory leaks
       const plotlyElements = document.querySelectorAll('.js-plotly-plot');
       plotlyElements.forEach((el) => {
         if (window.Plotly && window.Plotly.purge) {
@@ -90,17 +256,66 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
     }
   }, [selectedClusters, clusterData, clusteringResults]);
 
+  // Apply saved positions and sizes when widgetStates change
+  useEffect(() => {
+    // Apply saved positions and sizes to DOM elements
+    const applyLayoutFromState = () => {
+      Object.entries(widgetStates).forEach(([widgetId, state]) => {
+        if (!state.visible) return;
+        
+        // Convert camelCase to kebab-case for CSS class
+        const panelClass = widgetId === 'clusterList' ? 'panel-cluster-list' :
+                          widgetId === 'spikeList' ? 'panel-spike-list' :
+                          widgetId === 'clusterStats' ? 'panel-cluster-stats' :
+                          widgetId === 'signalView' ? 'panel-signal-view' :
+                          widgetId === 'dimReduction' ? 'panel-dim-reduction' :
+                          widgetId === 'waveform' ? 'panel-waveform' : '';
+        
+        const panel = document.querySelector(`.${panelClass}`);
+        const widget = panel?.querySelector('.dockable-widget');
+        
+        if (panel && state.position && (state.position.left !== null || state.position.top !== null)) {
+          if (state.position.left !== null) {
+            panel.style.left = typeof state.position.left === 'number' ? `${state.position.left}px` : state.position.left;
+          }
+          if (state.position.top !== null) {
+            panel.style.top = typeof state.position.top === 'number' ? `${state.position.top}px` : state.position.top;
+          }
+        }
+        
+        if (widget && state.size && (state.size.width || state.size.height)) {
+          if (state.size.width) {
+            widget.style.width = typeof state.size.width === 'number' ? `${state.size.width}px` : state.size.width;
+          }
+          if (state.size.height) {
+            widget.style.height = typeof state.size.height === 'number' ? `${state.size.height}px` : state.size.height;
+          }
+          widget.style.flex = 'none';
+        }
+      });
+    };
+    
+    // Multiple attempts to ensure DOM is ready
+    const timer1 = setTimeout(applyLayoutFromState, 50);
+    const timer2 = setTimeout(applyLayoutFromState, 200);
+    const timer3 = setTimeout(applyLayoutFromState, 500);
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [widgetStates]);
+
   // Fetch cluster list from API
   const fetchClusterList = async () => {
     try {
       console.log(`[${selectedAlgorithm}] Fetching cluster list...`);
       
-      // Use algorithm results if available (TorchBCI JimsAlgorithm or Kilosort4)
       if (selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') {
         if (clusteringResults && clusteringResults.available) {
           console.log(`Using ${selectedAlgorithm} results for cluster list`);
           
-          // Convert clustering results to cluster list format
           const clusterList = clusteringResults.clusters.map((clusterSummary) => ({
             id: clusterSummary.clusterId,
             size: clusterSummary.numSpikes
@@ -115,7 +330,6 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
         return;
       }
       
-      // Otherwise fetch from API (Preprocessed Kilosort)
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       const response = await fetch(`${apiUrl}/api/cluster-data`, {
         method: 'POST',
@@ -132,11 +346,8 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
       if (response.ok) {
         const data = await response.json();
         setClusterData(data);
-
-        // Create cluster list for table
         const clusterList = data.clusterIds.map(id => ({ id }));
         setClusters(clusterList);
-
         console.log(`Loaded ${clusterList.length} clusters`);
       }
     } catch (error) {
@@ -149,7 +360,6 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
     try {
       console.log(`[${selectedAlgorithm}] Fetching spikes for clusters:`, selectedClusters);
       
-      // Use algorithm results if available (TorchBCI JimsAlgorithm or Kilosort4)
       if ((selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') && clusteringResults && clusteringResults.available) {
         console.log(`Using ${selectedAlgorithm} results for spike list`);
         
@@ -168,15 +378,12 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
           }
         });
         
-        // Sort by time
         allSpikes.sort((a, b) => a.time - b.time);
-        
         setSpikes(allSpikes);
         console.log(`Loaded ${allSpikes.length} spikes from JimsAlgorithm for ${selectedClusters.length} clusters`);
         return;
       }
       
-      // Otherwise use clusterData from API (Preprocessed Kilosort)
       if (!clusterData || !clusterData.clusters) return;
 
       const allSpikes = [];
@@ -195,9 +402,7 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
         }
       });
 
-      // Sort by time
       allSpikes.sort((a, b) => a.time - b.time);
-
       setSpikes(allSpikes);
       console.log(`Loaded ${allSpikes.length} spikes for ${selectedClusters.length} clusters`);
     } catch (error) {
@@ -273,46 +478,35 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
     setSelectedSpike(index);
 
     let pointIndex = -1;
-
-    // Convert spike time to number for consistent comparison
     const spikeTimeNum = Number(spike.time);
 
-    // Find the point index in the appropriate data structure
     if ((selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') && clusteringResults && clusteringResults.available) {
-      // For algorithm results, search in clusteringResults
       if (clusteringResults.fullData && clusteringResults.fullData[spike.clusterId]) {
         const clusterSpikes = clusteringResults.fullData[spike.clusterId];
-        // Use tolerant comparison to handle floating point precision issues
         pointIndex = clusterSpikes.findIndex(s => Math.abs(Number(s.time) - spikeTimeNum) < 0.01);
         
         if (pointIndex === -1) {
           console.warn(`Could not find spike at time ${spikeTimeNum} in cluster ${spike.clusterId}`);
-          console.log('Available times:', clusterSpikes.map(s => s.time).slice(0, 10));
         }
       }
     } else if (clusterData && clusterData.clusters) {
-      // For Preprocessed Kilosort, search in clusterData
       const cluster = clusterData.clusters.find(c => c.clusterId === spike.clusterId);
       if (cluster && cluster.spikeTimes) {
-        // Use tolerant comparison to handle floating point precision issues
         pointIndex = cluster.spikeTimes.findIndex(t => Math.abs(Number(t) - spikeTimeNum) < 0.01);
         
         if (pointIndex === -1) {
           console.warn(`Could not find spike at time ${spikeTimeNum} in cluster ${spike.clusterId}`);
-          console.log('Available times:', cluster.spikeTimes.slice(0, 10));
         }
       }
     }
 
     if (pointIndex !== -1) {
-      // Highlight in dimensionality reduction plot and waveform view
       setHighlightedSpikes([{
         clusterId: spike.clusterId,
         pointIndex: pointIndex,
         time: spike.time
       }]);
 
-      // Update time range to center on spike
       const newStart = Math.max(0, spike.time - 500);
       const newEnd = spike.time + 500;
       setTimeRange({ start: newStart, end: newEnd });
@@ -325,14 +519,11 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
   const handleDimReductionSpikeClick = (clusterId, pointIndex) => {
     let spikeTime = null;
 
-    // Get spike time from the appropriate data structure
     if ((selectedAlgorithm === 'torchbci_jims' || selectedAlgorithm === 'kilosort4') && clusteringResults && clusteringResults.available) {
-      // For algorithm results, get from clusteringResults
       if (clusteringResults.fullData && clusteringResults.fullData[clusterId] && clusteringResults.fullData[clusterId][pointIndex]) {
         spikeTime = clusteringResults.fullData[clusterId][pointIndex].time;
       }
     } else if (clusterData && clusterData.clusters) {
-      // For Preprocessed Kilosort, get from clusterData
       const cluster = clusterData.clusters.find(c => c.clusterId === clusterId);
       if (cluster && cluster.spikeTimes && cluster.spikeTimes[pointIndex]) {
         spikeTime = cluster.spikeTimes[pointIndex];
@@ -341,7 +532,6 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
 
     if (spikeTime !== null) {
       const spikeTimeNum = Number(spikeTime);
-      // Find spike in spike list with tolerant comparison
       const spikeIndex = spikes.findIndex(s => 
         s.clusterId === clusterId && Math.abs(Number(s.time) - spikeTimeNum) < 0.01
       );
@@ -353,7 +543,6 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
       }
     }
   };
-
 
   // Widget management handlers
   const handleToggleWidget = (widgetId) => {
@@ -400,14 +589,7 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
   };
 
   const handleResetLayout = () => {
-    setWidgetStates({
-      clusterList: { visible: true, minimized: false, maximized: false, order: 1 },
-      spikeList: { visible: true, minimized: false, maximized: false, order: 2 },
-      clusterStats: { visible: true, minimized: false, maximized: false, order: 3 },
-      signalView: { visible: true, minimized: false, maximized: false, order: 4 },
-      dimReduction: { visible: true, minimized: false, maximized: false, order: 5 },
-      waveform: { visible: true, minimized: false, maximized: false, order: 6 }
-    });
+    setWidgetStates(DEFAULT_WIDGET_STATES);
     
     // Reset widget sizes and positions by removing inline styles
     document.querySelectorAll('.dockable-widget').forEach(widget => {
@@ -417,12 +599,133 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
       widget.style.zIndex = '';
     });
     
-    // Reset panel positions
     document.querySelectorAll('.panel').forEach(panel => {
       panel.style.left = '';
       panel.style.top = '';
     });
   };
+
+  // Get widget positions and sizes from DOM
+  const getWidgetPositionsAndSizes = useCallback(() => {
+    const result = {};
+    
+    const panelClassMap = {
+      clusterList: 'panel-cluster-list',
+      spikeList: 'panel-spike-list',
+      clusterStats: 'panel-cluster-stats',
+      signalView: 'panel-signal-view',
+      dimReduction: 'panel-dim-reduction',
+      waveform: 'panel-waveform'
+    };
+    
+    Object.keys(widgetStates).forEach(widgetId => {
+      if (!widgetStates[widgetId].visible) return;
+      
+      const panelClass = panelClassMap[widgetId];
+      const panel = document.querySelector(`.${panelClass}`);
+      const widget = panel?.querySelector('.dockable-widget');
+      
+      if (panel && widget) {
+        const panelStyle = window.getComputedStyle(panel);
+        const widgetRect = widget.getBoundingClientRect();
+        const containerRect = containerRef.current?.getBoundingClientRect();
+        
+        // Calculate position relative to container
+        const left = parseFloat(panelStyle.left);
+        const top = parseFloat(panelStyle.top);
+        
+        result[widgetId] = {
+          position: {
+            left: isNaN(left) ? null : left,
+            top: isNaN(top) ? null : top
+          },
+          size: {
+            width: widgetRect.width,
+            height: widgetRect.height
+          }
+        };
+      }
+    });
+    
+    return result;
+  }, [widgetStates]);
+
+  // Handle view change from ViewManager
+  const handleViewChange = useCallback((newWidgetStates) => {
+    // First reset all styles
+    document.querySelectorAll('.dockable-widget').forEach(widget => {
+      widget.style.width = '';
+      widget.style.height = '';
+      widget.style.flex = '';
+    });
+    
+    document.querySelectorAll('.panel').forEach(panel => {
+      panel.style.left = '';
+      panel.style.top = '';
+    });
+    
+    // Deep clone to avoid reference issues
+    const clonedStates = JSON.parse(JSON.stringify(newWidgetStates));
+    
+    // Then apply new states
+    setWidgetStates(clonedStates);
+  }, []);
+
+  // Handle adding widget from Widget Bank
+  const handleAddWidget = useCallback((widget) => {
+    const position = dropPosition || { top: 100, left: 100 };
+    
+    setWidgetStates(prev => ({
+      ...prev,
+      [widget.id]: {
+        ...prev[widget.id],
+        visible: true,
+        minimized: false,
+        maximized: false,
+        position: position
+      }
+    }));
+    
+    setDropPosition(null);
+  }, [dropPosition]);
+
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+    
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setDropPosition({
+        top: e.clientY - rect.top - 25,
+        left: e.clientX - rect.left - 100
+      });
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    setDropPosition(null);
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    try {
+      const widgetData = JSON.parse(e.dataTransfer.getData('application/json'));
+      if (widgetData && widgetData.id) {
+        handleAddWidget(widgetData);
+      }
+    } catch (error) {
+      console.error('Error handling drop:', error);
+    }
+    
+    setDropPosition(null);
+  }, [handleAddWidget]);
 
   // Get widget list for toolbar
   const getWidgetList = () => [
@@ -439,8 +742,12 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
     getWidgetList,
     handleToggleWidget,
     handleResetLayout,
-    widgetStates
-  }), [widgetStates]);
+    handleViewChange,
+    getWidgetPositionsAndSizes,
+    widgetStates,
+    isWidgetBankOpen,
+    setIsWidgetBankOpen
+  }), [widgetStates, isWidgetBankOpen, handleViewChange, getWidgetPositionsAndSizes]);
 
   // Trigger resize event for child components when widget size changes
   useEffect(() => {
@@ -448,17 +755,57 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
       window.dispatchEvent(new Event('resize'));
     };
     
-    // Small delay to allow DOM to update
     const timer = setTimeout(handleWidgetResize, 100);
     return () => clearTimeout(timer);
   }, [widgetStates]);
 
+  // Generate panel style with custom position
+  const getPanelStyle = (widgetId) => {
+    const state = widgetStates[widgetId];
+    if (state?.position) {
+      return {
+        top: typeof state.position.top === 'number' ? `${state.position.top}px` : state.position.top,
+        left: typeof state.position.left === 'number' ? `${state.position.left}px` : state.position.left
+      };
+    }
+    return {};
+  };
+
   return (
-    <div className="multi-panel-view">
+    <div 
+      className={`multi-panel-view ${isDragOver ? 'drag-over' : ''}`}
+      ref={containerRef}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drop indicator */}
+      {isDragOver && dropPosition && (
+        <div 
+          className="drop-indicator"
+          style={{
+            top: dropPosition.top,
+            left: dropPosition.left
+          }}
+        >
+          <span className="drop-indicator-icon">📥</span>
+          <span>Drop widget here</span>
+        </div>
+      )}
+
+      {/* Widget Bank */}
+      <WidgetBank
+        isOpen={isWidgetBankOpen}
+        onClose={() => setIsWidgetBankOpen(false)}
+        widgetStates={widgetStates}
+        onAddWidget={handleAddWidget}
+        onToggleWidget={handleToggleWidget}
+      />
+
       {/* Top Row */}
       <div className="panel-row panel-row-top">
         {widgetStates.clusterList.visible && (
-          <div className="panel panel-cluster-list">
+          <div className="panel panel-cluster-list" style={getPanelStyle('clusterList')}>
             <DockableWidget
               id="clusterList"
               title="Cluster List"
@@ -478,7 +825,7 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
         )}
 
         {widgetStates.spikeList.visible && (
-          <div className="panel panel-spike-list">
+          <div className="panel panel-spike-list" style={getPanelStyle('spikeList')}>
             <DockableWidget
               id="spikeList"
               title="Spike List Table"
@@ -499,7 +846,7 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
         )}
 
         {widgetStates.clusterStats.visible && (
-          <div className="panel panel-cluster-stats">
+          <div className="panel panel-cluster-stats" style={getPanelStyle('clusterStats')}>
             <DockableWidget
               id="clusterStats"
               title="Cluster Statistics Window"
@@ -518,7 +865,7 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
         )}
 
         {widgetStates.signalView.visible && (
-          <div className="panel panel-signal-view">
+          <div className="panel panel-signal-view" style={getPanelStyle('signalView')}>
             <DockableWidget
               id="signalView"
               title="Signal View"
@@ -540,7 +887,7 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
       {/* Bottom Row */}
       <div className="panel-row panel-row-bottom">
         {widgetStates.dimReduction.visible && (
-          <div className="panel panel-dim-reduction">
+          <div className="panel panel-dim-reduction" style={getPanelStyle('dimReduction')}>
             <DockableWidget
               id="dimReduction"
               title="Dimensionality Reduction Plot View (PCA)"
@@ -566,7 +913,7 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
         )}
 
         {widgetStates.waveform.visible && (
-          <div className="panel panel-waveform">
+          <div className="panel panel-waveform" style={getPanelStyle('waveform')}>
             <DockableWidget
               id="waveform"
               title="Waveform View"

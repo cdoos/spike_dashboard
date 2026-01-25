@@ -18,6 +18,7 @@ datasets/
 
 # Environment variables
 .env
+!.env.example
 
 # IDE files
 .vscode/

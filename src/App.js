@@ -8,51 +8,67 @@ import RuntimeAnalysisView from './components/RuntimeAnalysisView';
 import Upload from './components/Upload';
 import ConfirmDialog from './components/ConfirmDialog';
 import AlgorithmParametersMenu from './components/AlgorithmParametersMenu';
+import ErrorBoundary from './components/ErrorBoundary';
 import LRUCache from './utils/LRUCache';
+import apiClient from './api/client';
+import {
+  DEFAULT_CHANNELS,
+  DEFAULT_TIME_RANGE,
+  DEFAULT_WINDOW_SIZE,
+  DEFAULT_SPIKE_THRESHOLD,
+  DEFAULT_FILTER_TYPE,
+  DEFAULT_DATA_TYPE,
+  DEFAULT_VIEW,
+  DEFAULT_JIMS_PARAMETERS,
+  DEFAULT_DATASET,
+  CACHE_SIZE,
+  FETCH_DEBOUNCE_MS,
+  FILTERED_LINE_COLOR,
+} from './constants/config';
 import './App.css';
 
 function App() {
-  const [selectedChannels, setSelectedChannels] = useState([179, 181, 183]);
+  // Channel state
+  const [selectedChannels, setSelectedChannels] = useState(DEFAULT_CHANNELS);
   const [channelScrollOffset, setChannelScrollOffset] = useState(0);
+  
+  // Data state
   const [spikeData, setSpikeData] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [timeRange, setTimeRange] = useState({ start: 0, end: 1000 });
-  const [windowSize, setWindowSize] = useState(1000);
-  const [spikeThreshold, setSpikeThreshold] = useState(-25);
+  const [timeRange, setTimeRange] = useState(DEFAULT_TIME_RANGE);
+  const [windowSize, setWindowSize] = useState(DEFAULT_WINDOW_SIZE);
+  const [spikeThreshold, setSpikeThreshold] = useState(DEFAULT_SPIKE_THRESHOLD);
   const [invertData, setInvertData] = useState(false);
+  
+  // Dataset state
   const [datasetInfo, setDatasetInfo] = useState({ totalDataPoints: 3500000, totalChannels: 385 });
   const [datasets, setDatasets] = useState([]);
-  const [currentDataset, setCurrentDataset] = useState('c46_data_5percent.pt');
+  const [currentDataset, setCurrentDataset] = useState(DEFAULT_DATASET);
+  
+  // Modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Spike detection state
   const [usePrecomputedSpikes, setUsePrecomputedSpikes] = useState(false);
   const [precomputedAvailable, setPrecomputedAvailable] = useState(false);
-  const [selectedView, setSelectedView] = useState('multipanel'); // 'signal', 'clusters', or 'multipanel'
-  const [selectedDataType, setSelectedDataType] = useState('raw'); // 'raw', 'filtered', or 'spikes'
-  const [filterType, setFilterType] = useState('highpass'); // 'none', 'highpass', 'lowpass', 'bandpass', 'bandstop'
-  const [filteredLineColor, setFilteredLineColor] = useState('#FFD700'); // Color for filtered data line
+  
+  // View state
+  const [selectedView, setSelectedView] = useState(DEFAULT_VIEW);
+  const [selectedDataType, setSelectedDataType] = useState(DEFAULT_DATA_TYPE);
+  const [filterType, setFilterType] = useState(DEFAULT_FILTER_TYPE);
+  const [filteredLineColor, setFilteredLineColor] = useState(FILTERED_LINE_COLOR);
+  
+  // Algorithm state
   const [algorithms, setAlgorithms] = useState([]);
   const [selectedAlgorithm, setSelectedAlgorithm] = useState('');
   const [isRunningAlgorithm, setIsRunningAlgorithm] = useState(false);
   const [clusteringResults, setClusteringResults] = useState(null);
   const [showParametersMenu, setShowParametersMenu] = useState(false);
-  const [algorithmParameters, setAlgorithmParameters] = useState({
-    window_size: 3,
-    threshold: 36,
-    frame_size: 13,
-    normalize: 'zscore',
-    sort_by: 'value',
-    leniency_channel: 7,
-    leniency_time: 32,
-    similarity_mode: 'cosine',
-    outlier_threshold: 0.8,
-    n_clusters: 8,
-    cluster_feature_size: 7,
-    n_jims_features: 7,
-    pad_value: 0
-  });
+  const [algorithmParameters, setAlgorithmParameters] = useState(DEFAULT_JIMS_PARAMETERS);
 
-  const dataCache = React.useRef(new LRUCache(50));
+  // Cache ref
+  const dataCache = React.useRef(new LRUCache(CACHE_SIZE));
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -81,7 +97,7 @@ function App() {
       
       fetchTimeoutRef.current = setTimeout(() => {
         fetchSpikeData();
-      }, 200);
+      }, FETCH_DEBOUNCE_MS);
       
       return () => {
         if (fetchTimeoutRef.current) {
@@ -93,15 +109,10 @@ function App() {
 
   const fetchDatasets = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/api/datasets`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Available datasets:', data);
-        setDatasets(data.datasets);
-        setCurrentDataset(data.current);
-      }
+      const data = await apiClient.getDatasets();
+      console.log('Available datasets:', data);
+      setDatasets(data.datasets);
+      setCurrentDataset(data.current);
     } catch (error) {
       console.error('Error fetching datasets:', error);
     }
@@ -109,23 +120,18 @@ function App() {
 
   const fetchAlgorithms = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/api/spike-sorting/algorithms`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Available algorithms:', data);
-        setAlgorithms(data.algorithms || []);
-        // Select Preprocessed Kilosort by default
-        const preprocessedKilosort = data.algorithms?.find(a => a.name === 'preprocessed_kilosort' && a.available);
-        if (preprocessedKilosort) {
-          setSelectedAlgorithm(preprocessedKilosort.name);
-        } else {
-          // Fallback to first available algorithm
-          const firstAvailable = data.algorithms?.find(a => a.available);
-          if (firstAvailable) {
-            setSelectedAlgorithm(firstAvailable.name);
-          }
+      const data = await apiClient.getAlgorithms();
+      console.log('Available algorithms:', data);
+      setAlgorithms(data.algorithms || []);
+      // Select Preprocessed Kilosort by default
+      const preprocessedKilosort = data.algorithms?.find(a => a.name === 'preprocessed_kilosort' && a.available);
+      if (preprocessedKilosort) {
+        setSelectedAlgorithm(preprocessedKilosort.name);
+      } else {
+        // Fallback to first available algorithm
+        const firstAvailable = data.algorithms?.find(a => a.available);
+        if (firstAvailable) {
+          setSelectedAlgorithm(firstAvailable.name);
         }
       }
     } catch (error) {
@@ -139,20 +145,15 @@ function App() {
 
   const fetchClusteringResults = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/api/clustering-results`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.available) {
-          setClusteringResults(data);
-          console.log('✓ Clustering results loaded:', data.numClusters, 'clusters,', data.totalSpikes, 'spikes');
-          return data;
-        } else {
-          console.log('No clustering results available yet');
-          setClusteringResults(null);
-          return null;
-        }
+      const data = await apiClient.getClusteringResults();
+      if (data.available) {
+        setClusteringResults(data);
+        console.log('✓ Clustering results loaded:', data.numClusters, 'clusters,', data.totalSpikes, 'spikes');
+        return data;
+      } else {
+        console.log('No clustering results available yet');
+        setClusteringResults(null);
+        return null;
       }
     } catch (error) {
       console.error('Error fetching clustering results:', error);
@@ -169,72 +170,56 @@ function App() {
 
     setIsRunningAlgorithm(true);
     console.log(`\n${'='.repeat(60)}`);
-    console.log('Starting JimsAlgorithm...');
+    console.log(`Starting ${selectedAlgorithm}...`);
     console.log(`${'='.repeat(60)}`);
     console.log('Running on entire loaded dataset...');
     console.log('Parameters:', algorithmParameters);
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/api/spike-sorting/run`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          algorithm: selectedAlgorithm,
-          parameters: algorithmParameters
-        })
+      const result = await apiClient.runSpikeSorting(selectedAlgorithm, algorithmParameters);
+      
+      console.log('\n' + '='.repeat(60));
+      console.log(`${selectedAlgorithm} COMPLETED!`);
+      console.log('='.repeat(60));
+      console.log('Data Shape:', result.dataShape);
+      console.log('Number of Clusters:', result.numClusters);
+      console.log('Number of Spikes:', result.numSpikes);
+      console.log('Response has fullData?', !!result.fullData);
+      console.log('Response has available?', result.available);
+      
+      if (result.fullData) {
+        console.log('fullData length:', result.fullData.length);
+        console.log('First cluster sample:', result.fullData[0]?.slice(0, 2));
+      }
+      
+      console.log('\nCluster Details:');
+      result.clusters?.forEach((cluster, i) => {
+        console.log(`\nCluster ${cluster.clusterId}:`);
+        console.log(`  Spikes: ${cluster.numSpikes}`);
+        if (cluster.centroidShape) {
+          console.log(`  Centroid Shape: ${cluster.centroidShape}`);
+        }
+        if (cluster.spikeTimes && cluster.spikeTimes.length > 0) {
+          console.log(`  First spike time: ${cluster.spikeTimes[0]}`);
+        }
+        if (cluster.spikeChannels && cluster.spikeChannels.length > 0) {
+          console.log(`  First spike channel: ${cluster.spikeChannels[0]}`);
+        }
       });
+      console.log('='.repeat(60) + '\n');
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('\n' + '='.repeat(60));
-        console.log(`${selectedAlgorithm} COMPLETED!`);
-        console.log('='.repeat(60));
-        console.log('Data Shape:', result.dataShape);
-        console.log('Number of Clusters:', result.numClusters);
-        console.log('Number of Spikes:', result.numSpikes);
-        console.log('Response has fullData?', !!result.fullData);
-        console.log('Response has available?', result.available);
-        
-        if (result.fullData) {
-          console.log('fullData length:', result.fullData.length);
-          console.log('First cluster sample:', result.fullData[0]?.slice(0, 2));
-        }
-        
-        console.log('\nCluster Details:');
-        result.clusters.forEach((cluster, i) => {
-          console.log(`\nCluster ${cluster.clusterId}:`);
-          console.log(`  Spikes: ${cluster.numSpikes}`);
-          if (cluster.centroidShape) {
-            console.log(`  Centroid Shape: ${cluster.centroidShape}`);
-          }
-          if (cluster.spikeTimes && cluster.spikeTimes.length > 0) {
-            console.log(`  First spike time: ${cluster.spikeTimes[0]}`);
-          }
-          if (cluster.spikeChannels && cluster.spikeChannels.length > 0) {
-            console.log(`  First spike channel: ${cluster.spikeChannels[0]}`);
-          }
-        });
-        console.log('='.repeat(60) + '\n');
-
-        // Use results directly from the response if available (includes fullData)
-        if (result.available && result.fullData) {
-          console.log('Setting clustering results...');
-          setClusteringResults(result);
-          console.log('✓ Clustering results set directly from algorithm response');
-          console.log('ClusteringResults state should now have', result.fullData.length, 'clusters');
-        } else {
-          console.warn('Result missing fullData or available flag!');
-          console.log('  - available:', result.available);
-          console.log('  - fullData:', !!result.fullData);
-          // Fallback: fetch clustering results separately
-          await fetchClusteringResults();
-        }
+      // Use results directly from the response if available (includes fullData)
+      if (result.available && result.fullData) {
+        console.log('Setting clustering results...');
+        setClusteringResults(result);
+        console.log('✓ Clustering results set directly from algorithm response');
+        console.log('ClusteringResults state should now have', result.fullData.length, 'clusters');
       } else {
-        const error = await response.json();
-        console.error('Error running algorithm:', error);
+        console.warn('Result missing fullData or available flag!');
+        console.log('  - available:', result.available);
+        console.log('  - fullData:', !!result.fullData);
+        // Fallback: fetch clustering results separately
+        await fetchClusteringResults();
       }
     } catch (error) {
       console.error('Error running algorithm:', error);
@@ -647,5 +632,14 @@ function App() {
   );
 }
 
-export default App;
+// Wrap App with ErrorBoundary for production error handling
+function AppWithErrorBoundary() {
+  return (
+    <ErrorBoundary message="An error occurred in the Spike Dashboard. Please try refreshing the page.">
+      <App />
+    </ErrorBoundary>
+  );
+}
+
+export default AppWithErrorBoundary;
 

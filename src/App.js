@@ -547,8 +547,6 @@ function App() {
   return (
     <div className="app">
       <Header
-        totalChannels={datasetInfo.totalChannels}
-        activeChannels={selectedChannels.length}
         datasets={datasets}
         currentDataset={currentDataset}
         onDatasetChange={handleDatasetChange}
@@ -558,13 +556,6 @@ function App() {
         onViewChange={setSelectedView}
         selectedSignalType={selectedDataType}
         onSignalTypeChange={setSelectedDataType}
-        algorithms={algorithms}
-        selectedAlgorithm={selectedAlgorithm}
-        onAlgorithmChange={handleAlgorithmChange}
-        onRunAlgorithm={handleRunAlgorithm}
-        isRunningAlgorithm={isRunningAlgorithm}
-        onOpenParameters={handleOpenParameters}
-        multiPanelViewRef={multiPanelViewRef}
       />
       <div className="main-container">
         {selectedView === 'multipanel' ? (
@@ -574,6 +565,11 @@ function App() {
             clusteringResults={clusteringResults}
             selectedAlgorithm={selectedAlgorithm}
             datasetInfo={datasetInfo}
+            algorithms={algorithms}
+            onAlgorithmChange={handleAlgorithmChange}
+            onRunAlgorithm={handleRunAlgorithm}
+            isRunningAlgorithm={isRunningAlgorithm}
+            onOpenParameters={handleOpenParameters}
           />
         ) : selectedView === 'runtime' ? (
           <RuntimeAnalysisView />

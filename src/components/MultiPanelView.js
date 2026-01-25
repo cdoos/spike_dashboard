@@ -8,6 +8,7 @@ import WaveformSingleChannelView from './WaveformSingleChannelView';
 import WaveformNeighboringChannelsView from './WaveformNeighboringChannelsView';
 import DockableWidget from './DockableWidget';
 import WidgetBank from './WidgetBank';
+import RightSideMenu from './RightSideMenu';
 import { STORAGE_KEY, CURRENT_VIEW_KEY } from './ViewManager';
 import './MultiPanelView.css';
 
@@ -21,7 +22,17 @@ const DEFAULT_WIDGET_STATES = {
   waveform: { visible: true, minimized: false, maximized: false, order: 6, position: null, size: null }
 };
 
-const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selectedAlgorithm, datasetInfo }, ref) => {
+const MultiPanelView = forwardRef(({ 
+  selectedDataset, 
+  clusteringResults, 
+  selectedAlgorithm, 
+  datasetInfo,
+  algorithms,
+  onAlgorithmChange,
+  onRunAlgorithm,
+  isRunningAlgorithm,
+  onOpenParameters
+}, ref) => {
   // State management
   const [clusters, setClusters] = useState([]);
   const [selectedClusters, setSelectedClusters] = useState([]);
@@ -800,6 +811,21 @@ const MultiPanelView = forwardRef(({ selectedDataset, clusteringResults, selecte
         widgetStates={widgetStates}
         onAddWidget={handleAddWidget}
         onToggleWidget={handleToggleWidget}
+      />
+
+      {/* Right Side Menu */}
+      <RightSideMenu
+        isWidgetBankOpen={isWidgetBankOpen}
+        onWidgetBankToggle={() => setIsWidgetBankOpen(!isWidgetBankOpen)}
+        widgetStates={widgetStates}
+        onViewChange={handleViewChange}
+        getWidgetPositionsAndSizes={getWidgetPositionsAndSizes}
+        algorithms={algorithms}
+        selectedAlgorithm={selectedAlgorithm}
+        onAlgorithmChange={onAlgorithmChange}
+        onRunAlgorithm={onRunAlgorithm}
+        isRunningAlgorithm={isRunningAlgorithm}
+        onOpenParameters={onOpenParameters}
       />
 
       {/* Top Row */}

@@ -1,6 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import './DockableWidget.css';
 
+/**
+ * DockableWidget Component
+ * 
+ * A resizable and draggable widget container for dashboard panels.
+ * Supports minimize, maximize, and close actions.
+ */
 const DockableWidget = ({
   id,
   title,
@@ -379,6 +386,46 @@ const DockableWidget = ({
       )}
     </div>
   );
+};
+
+DockableWidget.propTypes = {
+  /** Unique identifier for the widget */
+  id: PropTypes.string.isRequired,
+  /** Widget title displayed in header */
+  title: PropTypes.string.isRequired,
+  /** Widget content */
+  children: PropTypes.node,
+  /** Callback when close button is clicked */
+  onClose: PropTypes.func,
+  /** Callback when minimize button is clicked */
+  onMinimize: PropTypes.func,
+  /** Callback when maximize button is clicked */
+  onMaximize: PropTypes.func,
+  /** Whether widget is currently minimized */
+  isMinimized: PropTypes.bool,
+  /** Whether widget is currently maximized */
+  isMaximized: PropTypes.bool,
+  /** Whether to show window control buttons */
+  showControls: PropTypes.bool,
+  /** Additional CSS classes */
+  className: PropTypes.string,
+  /** Whether widget can be resized */
+  resizable: PropTypes.bool,
+  /** Whether widget can be dragged */
+  draggable: PropTypes.bool,
+};
+
+DockableWidget.defaultProps = {
+  children: null,
+  onClose: null,
+  onMinimize: null,
+  onMaximize: null,
+  isMinimized: false,
+  isMaximized: false,
+  showControls: true,
+  className: '',
+  resizable: true,
+  draggable: true,
 };
 
 export default DockableWidget;

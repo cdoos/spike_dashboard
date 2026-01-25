@@ -1,0 +1,138 @@
+/**
+ * Built-in Widget Registration
+ * 
+ * This file registers all built-in widgets with the widget registry.
+ * Import and call initializeBuiltinWidgets() at app startup.
+ * 
+ * @module widgets/builtinWidgets
+ */
+
+import { registerWidget } from './registry';
+
+// Import built-in widget components
+import ClusterListTable from '../components/ClusterListTable';
+import SpikeListTable from '../components/SpikeListTable';
+import ClusterStatisticsWindow from '../components/ClusterStatisticsWindow';
+import SignalViewPanel from '../components/SignalViewPanel';
+import DimensionalityReductionPanel from '../components/DimensionalityReductionPanel';
+import WaveformSingleChannelView from '../components/WaveformSingleChannelView';
+
+/**
+ * Built-in widget definitions
+ * 
+ * Each widget defines its metadata and component reference.
+ * The component will be rendered inside a DockableWidget container.
+ */
+const BUILTIN_WIDGETS = [
+  {
+    id: 'clusterList',
+    name: 'Cluster List',
+    description: 'View and select neuron clusters',
+    icon: '📋',
+    category: 'data',
+    defaultSize: { width: 180, height: 350 },
+    minWidth: 150,
+    minHeight: 200,
+    component: ClusterListTable,
+    requiredData: ['clusters'],
+    order: 1,
+  },
+  {
+    id: 'spikeList',
+    name: 'Spike List Table',
+    description: 'Browse spike events chronologically',
+    icon: '⚡',
+    category: 'data',
+    defaultSize: { width: 200, height: 350 },
+    minWidth: 180,
+    minHeight: 200,
+    component: SpikeListTable,
+    requiredData: ['spikes'],
+    order: 2,
+  },
+  {
+    id: 'clusterStats',
+    name: 'Cluster Statistics',
+    description: 'ISI violations, spike counts, quality metrics',
+    icon: '📊',
+    category: 'analysis',
+    defaultSize: { width: 200, height: 350 },
+    minWidth: 180,
+    minHeight: 200,
+    component: ClusterStatisticsWindow,
+    requiredData: ['clusters', 'statistics'],
+    order: 3,
+  },
+  {
+    id: 'signalView',
+    name: 'Signal View',
+    description: 'Raw/filtered neural signal traces',
+    icon: '📈',
+    category: 'visualization',
+    defaultSize: { width: 600, height: 350 },
+    minWidth: 400,
+    minHeight: 250,
+    component: SignalViewPanel,
+    requiredData: ['signal'],
+    order: 4,
+  },
+  {
+    id: 'dimReduction',
+    name: 'PCA Plot',
+    description: 'Dimensionality reduction visualization',
+    icon: '🎯',
+    category: 'visualization',
+    defaultSize: { width: 500, height: 400 },
+    minWidth: 350,
+    minHeight: 300,
+    component: DimensionalityReductionPanel,
+    requiredData: ['clusters'],
+    order: 5,
+  },
+  {
+    id: 'waveform',
+    name: 'Waveform View',
+    description: 'Spike waveform overlays',
+    icon: '〰️',
+    category: 'visualization',
+    defaultSize: { width: 500, height: 400 },
+    minWidth: 350,
+    minHeight: 300,
+    component: WaveformSingleChannelView,
+    requiredData: ['waveforms'],
+    order: 6,
+  },
+];
+
+/**
+ * Initialize and register all built-in widgets
+ * Call this function at application startup
+ * 
+ * @returns {void}
+ */
+export function initializeBuiltinWidgets() {
+  console.log('Initializing built-in widgets...');
+  
+  BUILTIN_WIDGETS.forEach(widget => {
+    try {
+      registerWidget(widget);
+    } catch (error) {
+      console.error(`Failed to register widget "${widget.id}":`, error);
+    }
+  });
+  
+  console.log(`Registered ${BUILTIN_WIDGETS.length} built-in widgets`);
+}
+
+/**
+ * Get list of built-in widget IDs
+ * Useful for determining which widgets are built-in vs custom
+ * 
+ * @returns {string[]}
+ */
+export function getBuiltinWidgetIds() {
+  return BUILTIN_WIDGETS.map(w => w.id);
+}
+
+export { BUILTIN_WIDGETS };
+export default initializeBuiltinWidgets;

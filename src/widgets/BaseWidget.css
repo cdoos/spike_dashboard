@@ -1,0 +1,197 @@
+/**
+ * BaseWidget Styles
+ * 
+ * Common styles for all dashboard widgets.
+ */
+
+.base-widget {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: transparent;
+  color: #e0e6ed;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Widget Header */
+.base-widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(64, 224, 208, 0.05);
+  border-bottom: 1px solid rgba(64, 224, 208, 0.1);
+  flex-shrink: 0;
+}
+
+.base-widget-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #40e0d0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.base-widget-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Refresh Button */
+.widget-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: rgba(64, 224, 208, 0.1);
+  border: 1px solid rgba(64, 224, 208, 0.2);
+  border-radius: 4px;
+  color: #40e0d0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+}
+
+.widget-refresh-btn:hover:not(:disabled) {
+  background: rgba(64, 224, 208, 0.2);
+  border-color: rgba(64, 224, 208, 0.4);
+}
+
+.widget-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.widget-refresh-btn.refreshing {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Widget Content */
+.base-widget-content {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  min-height: 0;
+}
+
+/* Widget Footer */
+.base-widget-footer {
+  padding: 8px 12px;
+  background: rgba(64, 224, 208, 0.05);
+  border-top: 1px solid rgba(64, 224, 208, 0.1);
+  font-size: 11px;
+  color: rgba(224, 230, 237, 0.6);
+  flex-shrink: 0;
+}
+
+/* Loading State */
+.widget-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 100px;
+  gap: 12px;
+  color: rgba(224, 230, 237, 0.6);
+  font-size: 13px;
+}
+
+.widget-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(64, 224, 208, 0.2);
+  border-top-color: #40e0d0;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Error State */
+.widget-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 100px;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.widget-error-icon {
+  font-size: 32px;
+}
+
+.widget-error-message {
+  color: #ff6b6b;
+  font-size: 13px;
+}
+
+.widget-error-retry {
+  margin-top: 8px;
+  padding: 6px 16px;
+  background: rgba(255, 107, 107, 0.2);
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  border-radius: 4px;
+  color: #ff6b6b;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.widget-error-retry:hover {
+  background: rgba(255, 107, 107, 0.3);
+  border-color: rgba(255, 107, 107, 0.6);
+}
+
+/* Empty State */
+.widget-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 100px;
+  gap: 8px;
+  color: rgba(224, 230, 237, 0.5);
+}
+
+.widget-empty-icon {
+  font-size: 40px;
+  opacity: 0.6;
+}
+
+.widget-empty-message {
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Scrollbar Styling */
+.base-widget-content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.base-widget-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.base-widget-content::-webkit-scrollbar-thumb {
+  background: rgba(64, 224, 208, 0.3);
+  border-radius: 3px;
+}
+
+.base-widget-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(64, 224, 208, 0.5);
+}

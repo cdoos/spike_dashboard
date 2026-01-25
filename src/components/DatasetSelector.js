@@ -1,20 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
+import PropTypes from 'prop-types';
+import { useClickOutside } from '../hooks';
 import './DatasetSelector.css';
 
+/**
+ * DatasetSelector Component
+ * 
+ * Dropdown selector for choosing and managing datasets.
+ * Supports dataset selection and deletion.
+ */
 const DatasetSelector = ({ datasets, currentDataset, onDatasetChange, onDatasetDelete }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  
+  const handleClose = useCallback(() => setIsOpen(false), []);
+  const dropdownRef = useClickOutside(handleClose, isOpen);
 
   const handleDelete = (e, datasetName) => {
     e.stopPropagation();
@@ -96,5 +95,23 @@ const DatasetSelector = ({ datasets, currentDataset, onDatasetChange, onDatasetD
   );
 };
 
-export default DatasetSelector;
+DatasetSelector.propTypes = {
+  /** Array of available datasets */
+  datasets: PropTypes.arrayOf(PropTypes.shape({
+    name: PropTypes.string.isRequired,
+    size: PropTypes.number,
+    sizeFormatted: PropTypes.string,
+  })).isRequired,
+  /** Currently selected dataset name */
+  currentDataset: PropTypes.string,
+  /** Callback when dataset is selected */
+  onDatasetChange: PropTypes.func.isRequired,
+  /** Callback when dataset delete is requested */
+  onDatasetDelete: PropTypes.func.isRequired,
+};
 
+DatasetSelector.defaultProps = {
+  currentDataset: null,
+};
+
+export default DatasetSelector;

@@ -1,7 +1,14 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import DatasetSelector from './DatasetSelector';
 import './Header.css';
 
+/**
+ * Header Component
+ * 
+ * Main navigation header with view selection, dataset management,
+ * and signal type controls.
+ */
 const Header = ({
   datasets,
   currentDataset,
@@ -81,6 +88,37 @@ const Header = ({
       </div>
     </div>
   );
+};
+
+Header.propTypes = {
+  /** Array of available datasets */
+  datasets: PropTypes.arrayOf(PropTypes.shape({
+    name: PropTypes.string.isRequired,
+    size: PropTypes.number,
+    sizeFormatted: PropTypes.string,
+  })).isRequired,
+  /** Currently selected dataset name */
+  currentDataset: PropTypes.string,
+  /** Callback when dataset is changed */
+  onDatasetChange: PropTypes.func.isRequired,
+  /** Callback when upload button is clicked */
+  onUploadClick: PropTypes.func.isRequired,
+  /** Callback when dataset delete is requested */
+  onDatasetDelete: PropTypes.func.isRequired,
+  /** Currently selected view */
+  selectedView: PropTypes.oneOf(['signal', 'clusters', 'multipanel', 'runtime']).isRequired,
+  /** Callback when view is changed */
+  onViewChange: PropTypes.func.isRequired,
+  /** Currently selected signal type (for signal view) */
+  selectedSignalType: PropTypes.oneOf(['raw', 'filtered', 'spikes']),
+  /** Callback when signal type is changed */
+  onSignalTypeChange: PropTypes.func,
+};
+
+Header.defaultProps = {
+  currentDataset: null,
+  selectedSignalType: 'raw',
+  onSignalTypeChange: () => {},
 };
 
 export default Header;

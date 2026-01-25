@@ -28,7 +28,6 @@ datasets/
 .DS_Store
 Thumbs.db
 
-*.md
 .*
 
 torchbci/

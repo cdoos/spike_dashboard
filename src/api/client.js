@@ -23,19 +23,32 @@ class ApiError extends Error {
 }
 
 /**
+ * Get stored auth token
+ */
+function getStoredToken() {
+  return localStorage.getItem('spike_dashboard_token');
+}
+
+/**
  * Core request method with error handling
  */
 async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  // Get auth token
+  const token = options.token || getStoredToken();
+  
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
       ...options.headers,
     },
   };
   
-  const finalOptions = { ...defaultOptions, ...options };
+  // Remove token from options to not include it in the request
+  const { token: _, ...restOptions } = options;
+  const finalOptions = { ...defaultOptions, ...restOptions };
   
   try {
     const response = await fetch(url, finalOptions);
@@ -67,6 +80,95 @@ async function request(endpoint, options = {}) {
  * Spike Dashboard API Client
  */
 const apiClient = {
+  // =====================
+  // Authentication
+  // =====================
+  
+  /**
+   * Login with username and password
+   * @param {string} username - Username or email
+   * @param {string} password - Password
+   */
+  async login(username, password) {
+    return request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+  },
+  
+  /**
+   * Register new user
+   * @param {string} username - Username
+   * @param {string} email - Email address
+   * @param {string} password - Password
+   */
+  async register(username, email, password) {
+    return request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, email, password }),
+    });
+  },
+  
+  /**
+   * Get current user info
+   * @param {string} token - Auth token
+   */
+  async getCurrentUser(token) {
+    return request('/api/auth/me', { token });
+  },
+  
+  /**
+   * Logout current user
+   * @param {string} token - Auth token
+   */
+  async logout(token) {
+    return request('/api/auth/logout', {
+      method: 'POST',
+      token,
+    });
+  },
+  
+  /**
+   * Change password
+   * @param {string} currentPassword - Current password
+   * @param {string} newPassword - New password
+   */
+  async changePassword(currentPassword, newPassword) {
+    return request('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+  },
+  
+  /**
+   * List all users (admin only)
+   */
+  async listUsers() {
+    return request('/api/auth/users');
+  },
+  
+  /**
+   * Update user role (admin only)
+   * @param {number} userId - User ID
+   * @param {string} role - New role ('user' or 'admin')
+   */
+  async updateUserRole(userId, role) {
+    return request(`/api/auth/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    });
+  },
+  
+  /**
+   * Delete user (admin only)
+   * @param {number} userId - User ID
+   */
+  async deleteUser(userId) {
+    return request(`/api/auth/users/${userId}`, {
+      method: 'DELETE',
+    });
+  },
+  
   // =====================
   // Health & Info
   // =====================

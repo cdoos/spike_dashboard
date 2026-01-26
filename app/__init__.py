@@ -13,6 +13,8 @@ from flask_cors import CORS
 from app.config import Config, get_config
 from app.logger import get_logger, log_info
 from app.routes import health_bp, datasets_bp, spike_data_bp, clustering_bp
+from app.routes.auth import auth_bp
+from app.models.database import init_db
 from app.services import (
     DatasetManager,
     LabelMappingManager,
@@ -51,13 +53,20 @@ def create_app(config: Config = None) -> Flask:
     
     # Configure CORS
     if config.CORS_ORIGINS == '*':
-        CORS(app)
+        CORS(app, supports_credentials=True)
     else:
         origins = [o.strip() for o in config.CORS_ORIGINS.split(',')]
-        CORS(app, origins=origins)
+        CORS(app, origins=origins, supports_credentials=True)
+    
+    # Configure secret key for sessions
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'spike-dashboard-secret-key')
     
     # Setup directories
     _setup_directories(config)
+    
+    # Initialize database
+    init_db(app)
+    logger.info("Database initialized")
     
     # Initialize services
     _init_services(app, config)
@@ -113,12 +122,13 @@ def _init_services(app: Flask, config: Config) -> None:
 
 def _register_blueprints(app: Flask) -> None:
     """Register all route blueprints."""
+    app.register_blueprint(auth_bp)
     app.register_blueprint(health_bp)
     app.register_blueprint(datasets_bp)
     app.register_blueprint(spike_data_bp)
     app.register_blueprint(clustering_bp)
     
-    logger.info("Blueprints registered: health, datasets, spike_data, clustering")
+    logger.info("Blueprints registered: auth, health, datasets, spike_data, clustering")
 
 
 def run_app(app: Flask = None, config: Config = None) -> None:

@@ -16,6 +16,10 @@ __pycache__/
 # Datasets folder (large files)
 datasets/
 
+# Database files
+instance/
+*.db
+
 # Environment variables
 .env
 !.env.example

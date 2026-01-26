@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import VisualizationArea from './components/VisualizationArea';
@@ -9,8 +9,10 @@ import Upload from './components/Upload';
 import ConfirmDialog from './components/ConfirmDialog';
 import AlgorithmParametersMenu from './components/AlgorithmParametersMenu';
 import ErrorBoundary from './components/ErrorBoundary';
+import UserMenu from './components/UserMenu';
 import LRUCache from './utils/LRUCache';
 import apiClient from './api/client';
+import { useAuth } from './context/AuthContext';
 import {
   DEFAULT_CHANNELS,
   DEFAULT_TIME_RANGE,
@@ -28,6 +30,9 @@ import {
 import './App.css';
 
 function App() {
+  // Auth context
+  const { user, allowedAlgorithms, logout, isAdmin, hasAlgorithmAccess } = useAuth();
+  
   // Channel state
   const [selectedChannels, setSelectedChannels] = useState(DEFAULT_CHANNELS);
   const [channelScrollOffset, setChannelScrollOffset] = useState(0);
@@ -60,7 +65,7 @@ function App() {
   const [filteredLineColor, setFilteredLineColor] = useState(FILTERED_LINE_COLOR);
   
   // Algorithm state
-  const [algorithms, setAlgorithms] = useState([]);
+  const [allAlgorithms, setAllAlgorithms] = useState([]);
   const [selectedAlgorithm, setSelectedAlgorithm] = useState('');
   const [isRunningAlgorithm, setIsRunningAlgorithm] = useState(false);
   const [clusteringResults, setClusteringResults] = useState(null);
@@ -69,6 +74,16 @@ function App() {
 
   // Cache ref
   const dataCache = React.useRef(new LRUCache(CACHE_SIZE));
+  
+  // Filter algorithms based on user role
+  const algorithms = useMemo(() => {
+    if (!allAlgorithms || allAlgorithms.length === 0) return [];
+    
+    // Filter algorithms based on user's allowed list
+    return allAlgorithms.filter(algo => 
+      hasAlgorithmAccess(algo.name)
+    );
+  }, [allAlgorithms, hasAlgorithmAccess]);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -122,14 +137,20 @@ function App() {
     try {
       const data = await apiClient.getAlgorithms();
       console.log('Available algorithms:', data);
-      setAlgorithms(data.algorithms || []);
-      // Select Preprocessed Kilosort by default
-      const preprocessedKilosort = data.algorithms?.find(a => a.name === 'preprocessed_kilosort' && a.available);
+      setAllAlgorithms(data.algorithms || []);
+      
+      // Filter algorithms based on user permissions and select default
+      const userAlgorithms = (data.algorithms || []).filter(a => 
+        hasAlgorithmAccess(a.name)
+      );
+      
+      // Select Preprocessed Kilosort by default (always available for all users)
+      const preprocessedKilosort = userAlgorithms.find(a => a.name === 'preprocessed_kilosort' && a.available);
       if (preprocessedKilosort) {
         setSelectedAlgorithm(preprocessedKilosort.name);
       } else {
-        // Fallback to first available algorithm
-        const firstAvailable = data.algorithms?.find(a => a.available);
+        // Fallback to first available algorithm user has access to
+        const firstAvailable = userAlgorithms.find(a => a.available);
         if (firstAvailable) {
           setSelectedAlgorithm(firstAvailable.name);
         }

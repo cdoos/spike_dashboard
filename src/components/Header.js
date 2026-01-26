@@ -1,13 +1,14 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import DatasetSelector from './DatasetSelector';
+import UserMenu from './UserMenu';
 import './Header.css';
 
 /**
  * Header Component
  * 
  * Main navigation header with view selection, dataset management,
- * and signal type controls.
+ * user menu, and signal type controls.
  */
 const Header = ({
   datasets,
@@ -85,6 +86,8 @@ const Header = ({
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
         </button>
+        
+        <UserMenu />
       </div>
     </div>
   );

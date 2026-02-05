@@ -85,9 +85,9 @@ export function PublicRoute({ children }) {
     return <LoadingSpinner />;
   }
 
-  // Redirect to home if already authenticated
+  // Redirect to dashboard if already authenticated
   if (isAuthenticated) {
-    const from = location.state?.from?.pathname || '/';
+    const from = location.state?.from?.pathname || '/dashboard';
     return <Navigate to={from} replace />;
   }
 

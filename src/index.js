@@ -6,6 +6,7 @@ import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
 import App from './App';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import LandingPage from './pages/LandingPage';
 import './index.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -14,6 +15,9 @@ root.render(
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          {/* Landing page - accessible to everyone */}
+          <Route path="/" element={<LandingPage />} />
+
           {/* Public routes */}
           <Route 
             path="/login" 
@@ -34,7 +38,7 @@ root.render(
           
           {/* Protected routes */}
           <Route 
-            path="/*" 
+            path="/dashboard/*" 
             element={
               <ProtectedRoute>
                 <App />

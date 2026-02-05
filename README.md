@@ -111,26 +111,6 @@ The frontend will be available at `http://localhost:3000` and the backend API at
 
 ---
 
-## Configuration
-
-All settings can be configured via environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HOST` | `0.0.0.0` | Backend server host |
-| `PORT` | `5000` | Backend server port |
-| `FLASK_DEBUG` | `false` | Enable Flask debug mode |
-| `CORS_ORIGINS` | `*` | Allowed CORS origins |
-| `DATASETS_FOLDER` | `datasets` | Path to the datasets directory |
-| `DEFAULT_DATASET` | `c46_data_5percent.pt` | Dataset to load on startup |
-| `DEFAULT_CHANNELS` | `385` | Number of channels in the default dataset |
-| `SAMPLING_RATE` | `30000` | Sampling rate in Hz |
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `SECRET_KEY` | — | Flask secret key for sessions |
-| `DEFAULT_PROBE_PATH` | `torchbci/data/NeuroPix1_default.mat` | Path to the probe configuration file |
-
----
-
 ## Project Structure
 
 ```
@@ -224,17 +204,6 @@ spike_dashboard/
 
 ---
 
-## Supported Algorithms
-
-| Algorithm | Type | Description |
-|-----------|------|-------------|
-| **Kilosort4** | Run on demand | State-of-the-art spike sorting; requires CUDA GPU for best performance |
-| **Kilosort4 (Preprocessed)** | Precomputed | Cached results from a previous Kilosort4 run |
-| **TorchBCI Algorithm** | Run on demand | Custom spike sorting from the torchbci package |
-| **TorchBCI Algorithm (Preprocessed)** | Precomputed | Cached results from a previous TorchBCI run |
-
-Preprocessed views become available automatically after running an algorithm. They allow instant access to results without re-running the computation.
-
 ---
 
 ## Extending with Custom Widgets
@@ -252,26 +221,3 @@ widgetRegistry.register({
   defaultSize: { width: 400, height: 300 },
 });
 ```
-
----
-
-## Development
-
-```bash
-# Start backend with debug mode
-FLASK_DEBUG=true python run.py
-
-# Start frontend dev server (hot reload)
-npm start
-
-# Build frontend for production
-npm run build
-```
-
----
-
-## Acknowledgments
-
-- [SpikeInterface](https://github.com/SpikeInterface/spikeinterface) — Unified framework for spike sorting
-- [Kilosort](https://github.com/MouseLand/Kilosort) — GPU-accelerated spike sorting
-- [torchbci](https://github.com/dongning-ma/torchbci) — PyTorch-based BCI algorithms

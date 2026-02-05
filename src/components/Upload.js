@@ -70,7 +70,7 @@ const Upload = ({ onUploadComplete, onClose }) => {
     }
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       
       const xhr = new XMLHttpRequest();
       

@@ -48,7 +48,7 @@ const SignalViewPanel = ({ highlightedSpikes, datasetInfo }) => {
 
       setIsLoading(true);
       try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const apiUrl = process.env.REACT_APP_API_URL || '';
         const response = await fetch(`${apiUrl}/api/spike-data`, {
           method: 'POST',
           headers: {

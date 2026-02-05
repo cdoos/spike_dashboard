@@ -258,7 +258,7 @@ function App() {
 
   const fetchDatasetInfo = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${apiUrl}/api/dataset-info`);
       
       if (response.ok) {
@@ -273,7 +273,7 @@ function App() {
 
   const checkSpikeTimesAvailable = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${apiUrl}/api/spike-times-available`);
       
       if (response.ok) {
@@ -295,7 +295,7 @@ function App() {
 
   const handleDatasetChange = async (datasetName) => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${apiUrl}/api/dataset/set`, {
         method: 'POST',
         headers: {
@@ -353,7 +353,7 @@ function App() {
     if (!datasetToDelete) return;
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${apiUrl}/api/dataset/delete`, {
         method: 'DELETE',
         headers: {
@@ -406,7 +406,7 @@ function App() {
 
     setIsLoading(true);
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${apiUrl}/api/spike-data`, {
         method: 'POST',
         headers: {
@@ -509,7 +509,7 @@ function App() {
       // Get current center of the view
       const currentCenter = Math.floor((timeRange.start + timeRange.end) / 2);
       
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${apiUrl}/api/navigate-spike`, {
         method: 'POST',
         headers: {

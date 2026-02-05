@@ -217,7 +217,7 @@ const DimensionalityReductionPanel = ({
   const fetchSpikePreview = async (clusterId, pointIdx) => {
     setIsLoadingPreview(true);
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
 
       // Get spike time and channel from cluster data
       let spikeTime, channelId;

@@ -341,7 +341,7 @@ const MultiPanelView = forwardRef(({
         return;
       }
       
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${apiUrl}/api/cluster-data`, {
         method: 'POST',
         headers: {
@@ -424,7 +424,7 @@ const MultiPanelView = forwardRef(({
   // Fetch cluster statistics
   const fetchClusterStatistics = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${apiUrl}/api/cluster-statistics`, {
         method: 'POST',
         headers: {
@@ -449,7 +449,7 @@ const MultiPanelView = forwardRef(({
   // Fetch cluster waveforms
   const fetchClusterWaveforms = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${apiUrl}/api/cluster-waveforms`, {
         method: 'POST',
         headers: {

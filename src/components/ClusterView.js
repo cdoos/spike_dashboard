@@ -121,7 +121,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
 
   const fetchClusterData = async (algorithmOverride = null) => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
 
       let requestBody;
       if (mode === 'real') {
@@ -169,7 +169,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
   const fetchSpikePreview = async (clusterIndex, pointIndex) => {
     setIsLoadingPreview(true);
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
 
       // Get cluster and channel info
       if (!clusterData || !clusterData.clusters || !clusterData.clusters[clusterIndex]) {
@@ -298,7 +298,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
   const addSpikeToOverlay = async (clusterIndex, pointIndex, channelId) => {
     setIsLoadingOverlay(true);
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       
       // Get spike time from cluster data
       if (!clusterData || !clusterData.clusters || !clusterData.clusters[clusterIndex]) {
@@ -371,7 +371,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
 
   const fetchSpikePreviewForNavigation = async (clusterIndex, pointIndex, channelId) => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       
       // Get spike time from cluster data
       if (!clusterData || !clusterData.clusters || !clusterData.clusters[clusterIndex]) {

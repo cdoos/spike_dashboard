@@ -79,6 +79,7 @@ class ClusteringManager:
         logger.info(f"JimsAlgorithm Results: {len(clusters)} clusters, {n_clustered_spikes} spikes")
         
         self._store_clustering_results(clusters, centroids, clusters_meta)
+        self._save_torchbci_results_to_file()
 
         response = {
             'success': True,
@@ -498,3 +499,74 @@ class ClusteringManager:
     def clear_results(self) -> None:
         """Clear stored clustering results."""
         self.clustering_results = None
+
+    # ---- Preprocessed TorchBCI persistence ----
+
+    def _get_torchbci_results_path(self) -> str:
+        """Get the file path for saved TorchBCI results."""
+        return os.path.join(self.config.LABELS_FOLDER, 'torchbci_results.npy')
+
+    def has_preprocessed_torchbci(self) -> bool:
+        """Check if preprocessed TorchBCI results file exists."""
+        return os.path.exists(self._get_torchbci_results_path())
+
+    def _save_torchbci_results_to_file(self) -> None:
+        """Save current clustering_results to a numpy file for later reloading."""
+        if self.clustering_results is None:
+            return
+
+        results_path = self._get_torchbci_results_path()
+        os.makedirs(os.path.dirname(results_path), exist_ok=True)
+
+        # Build a flat array: [x, y, cluster_id, time_samples, channel]
+        rows = []
+        for cluster_idx, cluster_spikes in enumerate(self.clustering_results):
+            for spike in cluster_spikes:
+                rows.append([
+                    spike['x'],
+                    spike['y'],
+                    cluster_idx,
+                    spike['time'],
+                    spike['channel']
+                ])
+
+        if rows:
+            arr = np.array(rows, dtype=np.float64)
+            np.save(results_path, arr)
+            logger.info(f"Saved TorchBCI results ({len(rows)} spikes) to {results_path}")
+        else:
+            logger.warning("No spikes to save for TorchBCI results")
+
+    def load_preprocessed_torchbci(self) -> None:
+        """Load preprocessed TorchBCI results from file into clustering_results."""
+        results_path = self._get_torchbci_results_path()
+        if not os.path.exists(results_path):
+            raise FileNotFoundError(f'Preprocessed TorchBCI results not found at {results_path}')
+
+        logger.info(f"Loading preprocessed TorchBCI results from: {results_path}")
+        arr = np.load(results_path)
+        # Columns: x, y, cluster_id, time_samples, channel
+
+        xy = arr[:, :2]
+        cluster_ids = arr[:, 2].astype(np.int64)
+        times = arr[:, 3].astype(np.int64)
+        channels = arr[:, 4].astype(np.int64)
+
+        unique_clusters = np.unique(cluster_ids)
+        self.clustering_results = []
+
+        for cluster_id in unique_clusters:
+            mask = cluster_ids == cluster_id
+            cluster_data = []
+            for i, idx in enumerate(np.where(mask)[0]):
+                cluster_data.append({
+                    'x': float(xy[idx, 0]),
+                    'y': float(xy[idx, 1]),
+                    'channel': int(channels[idx]),
+                    'time': int(times[idx]),
+                    'spikeIndex': i
+                })
+            self.clustering_results.append(cluster_data)
+
+        total_spikes = sum(len(c) for c in self.clustering_results)
+        logger.info(f"Loaded preprocessed TorchBCI: {len(self.clustering_results)} clusters, {total_spikes} spikes")

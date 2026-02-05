@@ -17,9 +17,10 @@ const RightSideMenu = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Check if parameters button should be shown
+  // Check if parameters button and run button should be shown
   const selectedAlgo = algorithms?.find(a => a.name === selectedAlgorithm);
   const showParametersButton = (selectedAlgo?.name === 'torchbci_jims' || selectedAlgo?.name === 'kilosort4') && selectedAlgo?.available;
+  const showRunButton = selectedAlgo?.requiresRun !== false;
 
   const handleToggle = () => {
     setIsOpen(!isOpen);
@@ -111,24 +112,26 @@ const RightSideMenu = ({
                   </button>
                 )}
 
-                <button
-                  className="menu-run-btn"
-                  onClick={onRunAlgorithm}
-                  disabled={!selectedAlgorithm || isRunningAlgorithm}
-                  title={isRunningAlgorithm ? "Algorithm is running..." : "Run spike sorting algorithm"}
-                >
-                  {isRunningAlgorithm ? (
-                    <>
-                      <span className="spinner"></span>
-                      Running...
-                    </>
-                  ) : (
-                    <>
-                      <span className="run-icon">▶</span>
-                      Run
-                    </>
-                  )}
-                </button>
+                {showRunButton && (
+                  <button
+                    className="menu-run-btn"
+                    onClick={onRunAlgorithm}
+                    disabled={!selectedAlgorithm || isRunningAlgorithm}
+                    title={isRunningAlgorithm ? "Algorithm is running..." : "Run spike sorting algorithm"}
+                  >
+                    {isRunningAlgorithm ? (
+                      <>
+                        <span className="spinner"></span>
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <span className="run-icon">▶</span>
+                        Run
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>

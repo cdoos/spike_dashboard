@@ -59,6 +59,11 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
       console.log('Using Preprocessed Kilosort data');
       fetchClusterData();
     }
+    // Preprocessed TorchBCI - fetch from API (precomputed results)
+    else if (selectedAlgorithm === 'preprocessed_torchbci') {
+      console.log('Using Preprocessed TorchBCI data');
+      fetchClusterData('preprocessed_torchbci');
+    }
     // Default fallback
     else {
       fetchClusterData();
@@ -114,7 +119,7 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
     };
   };
 
-  const fetchClusterData = async () => {
+  const fetchClusterData = async (algorithmOverride = null) => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -136,6 +141,11 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
           mode: 'synthetic',
           channelIds: channelIds
         };
+      }
+
+      // Pass algorithm name to backend when needed (e.g. preprocessed_torchbci)
+      if (algorithmOverride) {
+        requestBody.algorithm = algorithmOverride;
       }
 
       const response = await fetch(`${apiUrl}/api/cluster-data`, {

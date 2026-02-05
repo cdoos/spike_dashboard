@@ -101,10 +101,10 @@ class User(db.Model):
         """
         if self.is_admin():
             # Admin has access to all algorithms
-            return ['preprocessed_kilosort', 'torchbci_jims', 'kilosort4']
+            return ['preprocessed_kilosort', 'preprocessed_torchbci', 'torchbci_jims', 'kilosort4']
         else:
-            # Regular user only has access to preprocessed kilosort
-            return ['preprocessed_kilosort']
+            # Regular user has access to preprocessed algorithms
+            return ['preprocessed_kilosort', 'preprocessed_torchbci']
     
     @staticmethod
     def validate_password(password):

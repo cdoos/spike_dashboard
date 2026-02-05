@@ -25,8 +25,16 @@ def get_cluster_data():
         data = request.get_json()
         mode = data.get('mode', 'synthetic')
         channel_mapping = data.get('channelMapping', {})
+        algorithm = data.get('algorithm', '')
         
         clustering_manager = current_app.config['clustering_manager']
+        
+        # For preprocessed_torchbci, load saved results into memory first
+        if algorithm == 'preprocessed_torchbci':
+            clustering_manager.load_preprocessed_torchbci()
+            result = clustering_manager.get_cluster_data(mode, channel_mapping)
+            return jsonify(result)
+        
         result = clustering_manager.get_cluster_data(mode, channel_mapping)
         return jsonify(result)
     except FileNotFoundError as e:
@@ -49,7 +57,12 @@ def get_cluster_statistics():
         
         clustering_manager = current_app.config['clustering_manager']
         
-        if algorithm in ['torchbci_jims', 'kilosort4'] and clustering_manager.clustering_results is not None:
+        # For preprocessed_torchbci, load saved results into memory first
+        if algorithm == 'preprocessed_torchbci':
+            if clustering_manager.clustering_results is None:
+                clustering_manager.load_preprocessed_torchbci()
+        
+        if algorithm in ['torchbci_jims', 'kilosort4', 'preprocessed_torchbci'] and clustering_manager.clustering_results is not None:
             statistics = _calculate_algorithm_statistics(clustering_manager, cluster_ids)
         else:
             statistics = _calculate_kilosort_statistics(cluster_ids)
@@ -163,7 +176,12 @@ def get_cluster_waveforms():
         if not cluster_ids or dataset_manager.data_array is None:
             return jsonify({'waveforms': {}})
         
-        if algorithm in ['torchbci_jims', 'kilosort4'] and clustering_manager.clustering_results is not None:
+        # For preprocessed_torchbci, load saved results into memory first
+        if algorithm == 'preprocessed_torchbci':
+            if clustering_manager.clustering_results is None:
+                clustering_manager.load_preprocessed_torchbci()
+        
+        if algorithm in ['torchbci_jims', 'kilosort4', 'preprocessed_torchbci'] and clustering_manager.clustering_results is not None:
             waveforms_data = _get_algorithm_waveforms(
                 clustering_manager, dataset_manager, cluster_ids, max_waveforms, window_size
             )
@@ -365,7 +383,12 @@ def _get_cluster_spike_info(cluster_id, algorithm, clustering_manager):
     spike_times = []
     spike_channels = []
     
-    if algorithm in ['torchbci_jims', 'kilosort4'] and clustering_manager.clustering_results is not None:
+    # For preprocessed_torchbci, load saved results into memory first
+    if algorithm == 'preprocessed_torchbci':
+        if clustering_manager.clustering_results is None:
+            clustering_manager.load_preprocessed_torchbci()
+    
+    if algorithm in ['torchbci_jims', 'kilosort4', 'preprocessed_torchbci'] and clustering_manager.clustering_results is not None:
         if cluster_id >= len(clustering_manager.clustering_results):
             return spike_times, spike_channels
         
@@ -398,12 +421,21 @@ def _get_cluster_spike_info(cluster_id, algorithm, clustering_manager):
 @clustering_bp.route('/api/spike-sorting/algorithms', methods=['GET'])
 def list_spike_sorting_algorithms():
     """List all available spike sorting algorithms."""
+    clustering_manager = current_app.config['clustering_manager']
+    
     algorithms = [
         {
             'name': 'preprocessed_kilosort',
-            'displayName': 'Preprocessed Kilosort',
+            'displayName': 'Kilosort (Preprocessed)',
             'description': 'Pre-computed cluster data from Kilosort',
             'available': True,
+            'requiresRun': False
+        },
+        {
+            'name': 'preprocessed_torchbci',
+            'displayName': 'TorchBCI Algorithm (Preprocessed)',
+            'description': 'Pre-computed cluster data from TorchBCI Algorithm',
+            'available': clustering_manager.has_preprocessed_torchbci(),
             'requiresRun': False
         },
         {

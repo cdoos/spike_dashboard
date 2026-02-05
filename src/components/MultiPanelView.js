@@ -233,7 +233,7 @@ const MultiPanelView = forwardRef(({
 
   // Auto-select clusters 0, 1, 2 for preprocessed algorithms
   useEffect(() => {
-    if ((selectedAlgorithm === 'preprocessed_kilosort' || selectedAlgorithm === 'preprocessed_torchbci') && clusters.length > 0 && selectedClusters.length === 0) {
+    if ((selectedAlgorithm === 'preprocessed_torchbci' || selectedAlgorithm === 'preprocessed_kilosort4') && clusters.length > 0 && selectedClusters.length === 0) {
       const defaultClusters = [0, 1, 2].filter(id => clusters.some(c => c.id === id));
       if (defaultClusters.length > 0) {
         setSelectedClusters(defaultClusters);
@@ -350,7 +350,7 @@ const MultiPanelView = forwardRef(({
         body: JSON.stringify({
           mode: 'real',
           channelMapping: {},
-          algorithm: selectedAlgorithm  // passes 'preprocessed_torchbci' or 'preprocessed_kilosort'
+          algorithm: selectedAlgorithm
         })
       });
 

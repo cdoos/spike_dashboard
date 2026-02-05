@@ -372,7 +372,7 @@ const apiClient = {
    * @param {number[]} clusterIds - IDs of clusters to get stats for
    * @param {string} algorithm - Algorithm used for clustering
    */
-  async getClusterStatistics(clusterIds, algorithm = 'preprocessed_kilosort') {
+  async getClusterStatistics(clusterIds, algorithm = '') {
     return request('/api/cluster-statistics', {
       method: 'POST',
       body: JSON.stringify({ clusterIds, algorithm }),
@@ -383,7 +383,7 @@ const apiClient = {
    * Get cluster waveforms
    * @param {Object} params - Request parameters
    */
-  async getClusterWaveforms({ clusterIds, maxWaveforms = 100, windowSize = 30, algorithm = 'preprocessed_kilosort' }) {
+  async getClusterWaveforms({ clusterIds, maxWaveforms = 100, windowSize = 30, algorithm = '' }) {
     return request('/api/cluster-waveforms', {
       method: 'POST',
       body: JSON.stringify({ clusterIds, maxWaveforms, windowSize, algorithm }),
@@ -394,7 +394,7 @@ const apiClient = {
    * Get multi-channel waveforms for a cluster
    * @param {Object} params - Request parameters
    */
-  async getClusterMultiChannelWaveforms({ clusterId, maxWaveforms = 50, windowSize = 30, algorithm = 'preprocessed_kilosort' }) {
+  async getClusterMultiChannelWaveforms({ clusterId, maxWaveforms = 50, windowSize = 30, algorithm = '' }) {
     return request('/api/cluster-multi-channel-waveforms', {
       method: 'POST',
       body: JSON.stringify({ clusterId, maxWaveforms, windowSize, algorithm }),

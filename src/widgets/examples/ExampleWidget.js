@@ -379,7 +379,7 @@ ExampleWidget.propTypes = {
 ExampleWidget.defaultProps = {
   clusters: [],
   selectedClusters: [],
-  selectedAlgorithm: 'preprocessed_kilosort',
+  selectedAlgorithm: '',
   onClusterSelect: null,
   showPercentages: true,
   maxDisplayCount: 10,

@@ -300,7 +300,7 @@ Widgets receive props from `MultiPanelView`. Here are the available props:
 | `clusterData` | `Object` | Full cluster data from API |
 | `clusterWaveforms` | `Object` | Waveform data keyed by cluster ID |
 | `clusteringResults` | `Object` | Results from spike sorting algorithm |
-| `selectedAlgorithm` | `string` | Current algorithm: `'torchbci_jims'`, `'kilosort4'`, `'preprocessed_kilosort'` |
+| `selectedAlgorithm` | `string` | Current algorithm: `'torchbci_jims'`, `'kilosort4'`, `'preprocessed_torchbci'`, `'preprocessed_kilosort4'` |
 | `signalData` | `Object` | Signal data for visualization |
 | `timeRange` | `Object` | `{ start, end }` in samples |
 | `highlightedSpikes` | `Array` | Spikes to highlight in visualizations |
@@ -796,7 +796,7 @@ export const WIDGET_METADATA = {
   description: 'Browse and filter clusters',
   icon: '🔍',
   category: 'data',
-  defaultSize: { width: 280, height: 400 }a,
+  defaultSize: { width: 280, height: 400 },
   requiredData: ['clusters'],
 };
 

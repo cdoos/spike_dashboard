@@ -202,6 +202,7 @@ class ClusteringManager:
         logger.info(f"Kilosort4 Results: {n_clusters} clusters, {n_spikes} spikes")
 
         self._store_kilosort4_results(spike_times_samples, spike_clusters, out)
+        self._save_kilosort4_results_to_file()
 
         try:
             os.unlink(temp_bin.name)
@@ -361,10 +362,7 @@ class ClusteringManager:
             logger.info(f"Using stored clustering results ({len(self.clustering_results)} clusters)")
             return self._get_stored_clustering_data(channel_mapping)
         
-        if mode == 'real':
-            return self._get_real_cluster_data(channel_mapping)
-        else:
-            return self._get_synthetic_cluster_data(channel_mapping)
+        return self._get_synthetic_cluster_data(channel_mapping)
     
     def _get_stored_clustering_data(self, channel_mapping: Dict[str, int]) -> Dict[str, Any]:
         """Format stored clustering results for visualization."""
@@ -401,52 +399,6 @@ class ClusteringManager:
             'numClusters': len(clusters),
             'totalPoints': total_points,
             'clusterIds': list(range(len(clusters)))
-        }
-    
-    def _get_real_cluster_data(self, channel_mapping: Dict[str, int]) -> Dict[str, Any]:
-        """Load real cluster data from file."""
-        cluster_file = os.path.join(self.config.LABELS_FOLDER, 'spikes_xyclu_time.npy')
-        if not os.path.exists(cluster_file):
-            cluster_file = os.path.join(self.config.LABELS_FOLDER, 'spikes_xyclu_time 1.npy')
-            if not os.path.exists(cluster_file):
-                raise FileNotFoundError('Cluster data file not found in labels folder')
-        
-        logger.info(f"Loading real cluster data from: {cluster_file}")
-        spikes_arr = np.load(cluster_file)
-        
-        xy_coordinates = spikes_arr[:, :2]
-        cluster_ids = spikes_arr[:, 2].astype(np.int64)
-        times_secs = spikes_arr[:, 3]
-        sampling_frequency = self.config.SAMPLING_RATE
-        times_indices = (times_secs * sampling_frequency).astype(np.int64)
-        
-        unique_cluster_ids = np.unique(cluster_ids)
-        logger.info(f"Found {len(unique_cluster_ids)} unique clusters with {len(cluster_ids)} total points")
-        
-        clusters = []
-        for cluster_idx, cluster_id in enumerate(unique_cluster_ids):
-            mask = cluster_ids == cluster_id
-            cluster_points = xy_coordinates[mask]
-            cluster_times = times_indices[mask]
-            
-            color = self._generate_cluster_color(cluster_idx, len(unique_cluster_ids))
-            channel_id = channel_mapping.get(str(int(cluster_id))) if channel_mapping else 181
-            
-            clusters.append({
-                'clusterId': int(cluster_id),
-                'points': cluster_points.tolist(),
-                'spikeTimes': cluster_times.tolist(),
-                'color': color,
-                'channelId': channel_id,
-                'pointCount': len(cluster_points)
-            })
-        
-        return {
-            'mode': 'real',
-            'clusters': clusters,
-            'numClusters': len(clusters),
-            'totalPoints': len(cluster_ids),
-            'clusterIds': unique_cluster_ids.tolist()
         }
     
     def _get_synthetic_cluster_data(self, channel_mapping: Dict[str, int]) -> Dict[str, Any]:
@@ -570,3 +522,72 @@ class ClusteringManager:
 
         total_spikes = sum(len(c) for c in self.clustering_results)
         logger.info(f"Loaded preprocessed TorchBCI: {len(self.clustering_results)} clusters, {total_spikes} spikes")
+
+    # ---- Preprocessed Kilosort4 persistence ----
+
+    def _get_kilosort4_results_path(self) -> str:
+        """Get the file path for saved Kilosort4 results."""
+        return os.path.join(self.config.LABELS_FOLDER, 'kilosort4_results.npy')
+
+    def has_preprocessed_kilosort4(self) -> bool:
+        """Check if preprocessed Kilosort4 results file exists."""
+        return os.path.exists(self._get_kilosort4_results_path())
+
+    def _save_kilosort4_results_to_file(self) -> None:
+        """Save current clustering_results to a numpy file for later reloading."""
+        if self.clustering_results is None:
+            return
+
+        results_path = self._get_kilosort4_results_path()
+        os.makedirs(os.path.dirname(results_path), exist_ok=True)
+
+        rows = []
+        for cluster_idx, cluster_spikes in enumerate(self.clustering_results):
+            for spike in cluster_spikes:
+                rows.append([
+                    spike['x'],
+                    spike['y'],
+                    cluster_idx,
+                    spike['time'],
+                    spike['channel']
+                ])
+
+        if rows:
+            arr = np.array(rows, dtype=np.float64)
+            np.save(results_path, arr)
+            logger.info(f"Saved Kilosort4 results ({len(rows)} spikes) to {results_path}")
+        else:
+            logger.warning("No spikes to save for Kilosort4 results")
+
+    def load_preprocessed_kilosort4(self) -> None:
+        """Load preprocessed Kilosort4 results from file into clustering_results."""
+        results_path = self._get_kilosort4_results_path()
+        if not os.path.exists(results_path):
+            raise FileNotFoundError(f'Preprocessed Kilosort4 results not found at {results_path}')
+
+        logger.info(f"Loading preprocessed Kilosort4 results from: {results_path}")
+        arr = np.load(results_path)
+
+        xy = arr[:, :2]
+        cluster_ids = arr[:, 2].astype(np.int64)
+        times = arr[:, 3].astype(np.int64)
+        channels = arr[:, 4].astype(np.int64)
+
+        unique_clusters = np.unique(cluster_ids)
+        self.clustering_results = []
+
+        for cluster_id in unique_clusters:
+            mask = cluster_ids == cluster_id
+            cluster_data = []
+            for i, idx in enumerate(np.where(mask)[0]):
+                cluster_data.append({
+                    'x': float(xy[idx, 0]),
+                    'y': float(xy[idx, 1]),
+                    'channel': int(channels[idx]),
+                    'time': int(times[idx]),
+                    'spikeIndex': i
+                })
+            self.clustering_results.append(cluster_data)
+
+        total_spikes = sum(len(c) for c in self.clustering_results)
+        logger.info(f"Loaded preprocessed Kilosort4: {len(self.clustering_results)} clusters, {total_spikes} spikes")

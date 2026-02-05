@@ -54,15 +54,15 @@ const ClusterView = ({ selectedDataset, onNavigateToSpike, clusteringResults, se
         setClusterData(null); // Clear any previous data
       }
     }
-    // Preprocessed Kilosort - fetch from API (old behavior)
-    else if (selectedAlgorithm === 'preprocessed_kilosort') {
-      console.log('Using Preprocessed Kilosort data');
-      fetchClusterData();
-    }
     // Preprocessed TorchBCI - fetch from API (precomputed results)
     else if (selectedAlgorithm === 'preprocessed_torchbci') {
       console.log('Using Preprocessed TorchBCI data');
       fetchClusterData('preprocessed_torchbci');
+    }
+    // Preprocessed Kilosort4 - fetch from API (precomputed results)
+    else if (selectedAlgorithm === 'preprocessed_kilosort4') {
+      console.log('Using Preprocessed Kilosort4 data');
+      fetchClusterData('preprocessed_kilosort4');
     }
     // Default fallback
     else {

@@ -144,16 +144,10 @@ function App() {
         hasAlgorithmAccess(a.name)
       );
       
-      // Select Preprocessed Kilosort by default (always available for all users)
-      const preprocessedKilosort = userAlgorithms.find(a => a.name === 'preprocessed_kilosort' && a.available);
-      if (preprocessedKilosort) {
-        setSelectedAlgorithm(preprocessedKilosort.name);
-      } else {
-        // Fallback to first available algorithm user has access to
-        const firstAvailable = userAlgorithms.find(a => a.available);
-        if (firstAvailable) {
-          setSelectedAlgorithm(firstAvailable.name);
-        }
+      // Select first available algorithm user has access to
+      const firstAvailable = userAlgorithms.find(a => a.available);
+      if (firstAvailable) {
+        setSelectedAlgorithm(firstAvailable.name);
       }
     } catch (error) {
       console.error('Error fetching algorithms:', error);

@@ -16,7 +16,7 @@ import apiClient from '../api/client';
  * @param {Object} options.clusteringResults - Results from clustering algorithm
  * @returns {Object} Cluster data and operations
  */
-export function useClusterData({ mode = 'real', algorithm = 'preprocessed_kilosort', clusteringResults = null } = {}) {
+export function useClusterData({ mode = 'real', algorithm = '', clusteringResults = null } = {}) {
   const [clusters, setClusters] = useState([]);
   const [selectedClusters, setSelectedClusters] = useState([]);
   const [statistics, setStatistics] = useState({});

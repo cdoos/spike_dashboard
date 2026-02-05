@@ -1,4 +1,8 @@
-/* Widget Bank Overlay */
+/* ============================================
+   Widget Bank
+   ============================================ */
+
+/* Overlay */
 .widget-bank-overlay {
   position: fixed;
   top: 0;
@@ -9,7 +13,7 @@
   pointer-events: none;
 }
 
-/* Widget Bank Panel */
+/* Panel */
 .widget-bank {
   position: fixed;
   top: 60px;
@@ -17,28 +21,28 @@
   width: 320px;
   max-height: calc(100vh - 80px);
   background: linear-gradient(145deg, #1a1f35 0%, #141824 100%);
-  border: 1px solid rgba(64, 224, 208, 0.3);
-  border-radius: 12px;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(64, 224, 208, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border, rgba(64, 224, 208, 0.2));
+  border-radius: var(--radius-lg, 12px);
+  box-shadow:
+    var(--shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.4)),
+    0 0 0 1px rgba(64, 224, 208, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
   z-index: 9999;
   pointer-events: auto;
-  animation: slideIn 0.2s ease-out;
+  animation: widgetBankSlideIn 220ms var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
   overflow: hidden;
 }
 
-@keyframes slideIn {
+@keyframes widgetBankSlideIn {
   from {
     opacity: 0;
-    transform: translateX(-20px);
+    transform: translateX(-12px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
   }
 }
 
@@ -48,19 +52,19 @@
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  background: linear-gradient(90deg, rgba(64, 224, 208, 0.15) 0%, rgba(64, 224, 208, 0.05) 100%);
-  border-bottom: 1px solid rgba(64, 224, 208, 0.2);
+  background: linear-gradient(90deg, rgba(64, 224, 208, 0.1) 0%, rgba(64, 224, 208, 0.03) 100%);
+  border-bottom: 1px solid rgba(64, 224, 208, 0.12);
 }
 
 .widget-bank-header h3 {
   margin: 0;
-  color: #40e0d0;
-  font-size: 1rem;
+  color: var(--color-primary, #40e0d0);
+  font-size: var(--text-base, 1rem);
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
-  letter-spacing: 0.5px;
+  letter-spacing: -0.01em;
 }
 
 .header-icon {
@@ -68,52 +72,57 @@
 }
 
 .widget-bank-header .close-btn {
-  background: rgba(255, 107, 107, 0.1);
-  border: 1px solid rgba(255, 107, 107, 0.3);
-  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.2);
+  color: var(--color-danger, #ff6b6b);
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: var(--radius-md, 8px);
   cursor: pointer;
   font-size: 1.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast, 150ms ease);
 }
 
 .widget-bank-header .close-btn:hover {
-  background: rgba(255, 107, 107, 0.2);
-  border-color: #ff6b6b;
-  transform: scale(1.05);
+  background: rgba(255, 107, 107, 0.15);
+  border-color: var(--color-danger, #ff6b6b);
+  transform: scale(1.08);
+}
+
+.widget-bank-header .close-btn:active {
+  transform: scale(0.95);
 }
 
 /* Search */
 .widget-bank-search {
   padding: 12px 16px;
   position: relative;
-  border-bottom: 1px solid rgba(64, 224, 208, 0.1);
+  border-bottom: 1px solid rgba(64, 224, 208, 0.08);
 }
 
 .widget-bank-search input {
   width: 100%;
   padding: 10px 38px 10px 14px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(64, 224, 208, 0.2);
-  border-radius: 8px;
-  color: #e0e6ed;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(64, 224, 208, 0.15);
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-primary, #e0e6ed);
+  font-size: var(--text-sm, 0.875rem);
+  transition: all var(--transition-fast, 150ms ease);
 }
 
 .widget-bank-search input:focus {
   outline: none;
   border-color: rgba(64, 224, 208, 0.5);
-  box-shadow: 0 0 0 3px rgba(64, 224, 208, 0.1);
+  box-shadow: 0 0 0 3px rgba(64, 224, 208, 0.08);
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .widget-bank-search input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.35));
 }
 
 .widget-bank-search .search-icon {
@@ -122,7 +131,7 @@
   top: 50%;
   transform: translateY(-50%);
   font-size: 0.9rem;
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 /* Categories */
@@ -131,18 +140,19 @@
   flex-wrap: wrap;
   gap: 6px;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(64, 224, 208, 0.1);
+  border-bottom: 1px solid rgba(64, 224, 208, 0.08);
 }
 
 .category-btn {
-  padding: 6px 12px;
-  background: rgba(64, 224, 208, 0.05);
-  border: 1px solid rgba(64, 224, 208, 0.15);
-  border-radius: 16px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.75rem;
+  padding: 5px 12px;
+  background: rgba(64, 224, 208, 0.04);
+  border: 1px solid rgba(64, 224, 208, 0.12);
+  border-radius: var(--radius-full, 9999px);
+  color: var(--color-text-secondary, rgba(255, 255, 255, 0.65));
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast, 150ms ease);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -150,14 +160,15 @@
 
 .category-btn:hover {
   background: rgba(64, 224, 208, 0.1);
-  border-color: rgba(64, 224, 208, 0.3);
+  border-color: rgba(64, 224, 208, 0.25);
   color: #fff;
 }
 
 .category-btn.active {
-  background: rgba(64, 224, 208, 0.2);
-  border-color: #40e0d0;
-  color: #40e0d0;
+  background: rgba(64, 224, 208, 0.18);
+  border-color: var(--color-primary, #40e0d0);
+  color: var(--color-primary, #40e0d0);
+  box-shadow: 0 0 8px rgba(64, 224, 208, 0.1);
 }
 
 .category-btn .cat-icon {
@@ -177,10 +188,10 @@
   gap: 8px;
   padding: 10px 12px;
   margin: 4px 8px 12px;
-  background: rgba(64, 224, 208, 0.05);
-  border: 1px dashed rgba(64, 224, 208, 0.2);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.6);
+  background: rgba(64, 224, 208, 0.04);
+  border: 1px dashed rgba(64, 224, 208, 0.15);
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.5));
   font-size: 0.8rem;
 }
 
@@ -199,41 +210,42 @@
   gap: 6px;
   padding: 8px 12px;
   margin: 0 0 8px 0;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.75rem;
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.5));
+  font-size: var(--text-xs, 0.75rem);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.06em;
 }
 
 /* Widget Items */
 .widget-items {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .widget-bank-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
+  padding: 11px 12px;
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(64, 224, 208, 0.1);
-  border-radius: 10px;
+  border: 1px solid rgba(64, 224, 208, 0.08);
+  border-radius: var(--radius-md, 8px);
   cursor: grab;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast, 150ms ease);
   user-select: none;
 }
 
 .widget-bank-item:hover {
-  background: rgba(64, 224, 208, 0.08);
-  border-color: rgba(64, 224, 208, 0.3);
-  transform: translateX(4px);
+  background: rgba(64, 224, 208, 0.07);
+  border-color: rgba(64, 224, 208, 0.25);
+  transform: translateX(3px);
 }
 
 .widget-bank-item:active {
   cursor: grabbing;
+  transform: translateX(3px) scale(0.99);
 }
 
 .widget-bank-item.dragging {
@@ -242,24 +254,29 @@
 }
 
 .widget-bank-item.active {
-  background: rgba(64, 224, 208, 0.12);
-  border-color: rgba(64, 224, 208, 0.4);
+  background: rgba(64, 224, 208, 0.1);
+  border-color: rgba(64, 224, 208, 0.35);
 }
 
 .widget-bank-item.active .widget-item-name {
-  color: #40e0d0;
+  color: var(--color-primary, #40e0d0);
 }
 
 .widget-item-icon {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(64, 224, 208, 0.1);
-  border-radius: 8px;
-  font-size: 1.3rem;
+  background: rgba(64, 224, 208, 0.08);
+  border-radius: var(--radius-md, 8px);
+  font-size: 1.25rem;
   flex-shrink: 0;
+  transition: background var(--transition-fast, 150ms ease);
+}
+
+.widget-bank-item:hover .widget-item-icon {
+  background: rgba(64, 224, 208, 0.15);
 }
 
 .widget-item-info {
@@ -271,8 +288,8 @@
 }
 
 .widget-item-name {
-  color: #e0e6ed;
-  font-size: 0.9rem;
+  color: var(--color-text-primary, #e0e6ed);
+  font-size: var(--text-sm, 0.875rem);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -280,8 +297,8 @@
 }
 
 .widget-item-desc {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.75rem;
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.45));
+  font-size: var(--text-xs, 0.75rem);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -294,25 +311,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius-full, 9999px);
   font-size: 0.85rem;
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast, 150ms ease);
 }
 
 .widget-status.visible {
-  background: rgba(64, 224, 208, 0.2);
-  color: #40e0d0;
+  background: rgba(64, 224, 208, 0.15);
+  color: var(--color-primary, #40e0d0);
 }
 
 .widget-status.hidden {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .widget-bank-item:hover .widget-status.hidden {
-  background: rgba(64, 224, 208, 0.15);
-  color: #40e0d0;
+  background: rgba(64, 224, 208, 0.12);
+  color: var(--color-primary, #40e0d0);
 }
 
 /* No Results */
@@ -322,28 +339,29 @@
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.35));
 }
 
 .no-results-icon {
   font-size: 2rem;
   margin-bottom: 12px;
+  opacity: 0.6;
 }
 
 .no-results p {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--text-sm, 0.875rem);
 }
 
 /* Footer */
 .widget-bank-footer {
-  padding: 12px 16px;
-  border-top: 1px solid rgba(64, 224, 208, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  padding: 10px 16px;
+  border-top: 1px solid rgba(64, 224, 208, 0.08);
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .widget-count {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.4));
   font-size: 0.8rem;
 }
 
@@ -355,11 +373,11 @@
   gap: 8px;
   padding: 10px 16px;
   background: linear-gradient(135deg, #1a1f35 0%, #0d1117 100%);
-  border: 2px solid #40e0d0;
-  border-radius: 8px;
+  border: 2px solid var(--color-primary, #40e0d0);
+  border-radius: var(--radius-md, 8px);
   color: #fff;
-  font-size: 0.9rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  font-size: var(--text-sm, 0.875rem);
+  box-shadow: var(--shadow-xl, 0 8px 24px rgba(0, 0, 0, 0.5));
   z-index: 99999;
   pointer-events: none;
 }
@@ -374,7 +392,7 @@
 
 /* Scrollbar */
 .widget-bank-content::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .widget-bank-content::-webkit-scrollbar-track {
@@ -383,7 +401,7 @@
 
 .widget-bank-content::-webkit-scrollbar-thumb {
   background: rgba(64, 224, 208, 0.2);
-  border-radius: 3px;
+  border-radius: var(--radius-full, 9999px);
 }
 
 .widget-bank-content::-webkit-scrollbar-thumb:hover {
@@ -399,4 +417,3 @@
     max-height: 60vh;
   }
 }
-

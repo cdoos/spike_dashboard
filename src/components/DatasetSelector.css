@@ -1,3 +1,7 @@
+/* ============================================
+   Dataset Selector
+   ============================================ */
+
 .dataset-selector-custom {
   display: flex;
   align-items: center;
@@ -7,20 +11,20 @@
 }
 
 .dataset-selector-custom label {
-  color: #94a3b8;
-  font-size: 0.875rem;
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: var(--text-sm, 0.875rem);
   font-weight: 500;
 }
 
 .dataset-select-trigger {
   background: rgba(30, 41, 59, 0.8);
-  color: #e2e8f0;
-  border: 1px solid rgba(64, 224, 208, 0.3);
-  border-radius: 6px;
+  color: var(--color-text-primary, #e2e8f0);
+  border: 1px solid var(--color-border, rgba(64, 224, 208, 0.2));
+  border-radius: var(--radius-md, 8px);
   padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
+  font-size: var(--text-sm, 0.875rem);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-fast, 150ms ease);
   min-width: 250px;
   display: flex;
   align-items: center;
@@ -29,8 +33,9 @@
 }
 
 .dataset-select-trigger:hover {
-  border-color: #40e0d0;
-  background: rgba(30, 41, 59, 1);
+  border-color: var(--color-border-active, #40e0d0);
+  background: rgba(30, 41, 59, 0.95);
+  box-shadow: 0 0 0 3px rgba(64, 224, 208, 0.06);
 }
 
 .dataset-select-value {
@@ -41,28 +46,46 @@
 }
 
 .dropdown-arrow {
-  transition: transform 0.2s;
+  transition: transform var(--transition-base, 200ms ease);
   flex-shrink: 0;
+  opacity: 0.6;
 }
 
 .dropdown-arrow.open {
   transform: rotate(180deg);
+  opacity: 1;
 }
 
+/* Dropdown Menu */
 .dataset-dropdown-menu {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
-  background: #1e293b;
-  border: 1px solid rgba(64, 224, 208, 0.3);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  background: rgba(30, 41, 59, 0.98);
+  border: 1px solid var(--color-border, rgba(64, 224, 208, 0.25));
+  border-radius: var(--radius-md, 8px);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(64, 224, 208, 0.05);
   z-index: 1002;
   max-height: 400px;
   overflow-y: auto;
   margin-left: 70px;
   min-width: 250px;
+  animation: dropdownSlide 180ms var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  transform-origin: top center;
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .dataset-option {
@@ -71,8 +94,8 @@
   justify-content: space-between;
   padding: 10px 12px;
   cursor: pointer;
-  transition: all 0.2s;
-  border-bottom: 1px solid rgba(64, 224, 208, 0.1);
+  transition: all var(--transition-fast, 150ms ease);
+  border-bottom: 1px solid rgba(64, 224, 208, 0.06);
 }
 
 .dataset-option:last-child {
@@ -80,58 +103,61 @@
 }
 
 .dataset-option:hover {
-  background: rgba(64, 224, 208, 0.1);
+  background: var(--color-primary-muted, rgba(64, 224, 208, 0.1));
 }
 
 .dataset-option.active {
-  background: rgba(64, 224, 208, 0.15);
+  background: rgba(64, 224, 208, 0.12);
+  border-left: 2px solid var(--color-primary, #40e0d0);
 }
 
 .dataset-option.active .dataset-name {
-  color: #40e0d0;
+  color: var(--color-primary, #40e0d0);
   font-weight: 600;
 }
 
 .dataset-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
   min-width: 0;
 }
 
 .dataset-name {
-  color: #e2e8f0;
-  font-size: 0.875rem;
+  color: var(--color-text-primary, #e2e8f0);
+  font-size: var(--text-sm, 0.875rem);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color var(--transition-fast, 150ms ease);
 }
 
 .dataset-size {
-  color: #94a3b8;
-  font-size: 0.75rem;
+  color: var(--color-text-muted, #94a3b8);
+  font-size: var(--text-xs, 0.75rem);
 }
 
 .delete-dataset-btn {
   display: none; /* Hidden to prevent accidental deletion */
   align-items: center;
   justify-content: center;
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: var(--color-danger-dark, #ef4444);
   padding: 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm, 4px);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-fast, 150ms ease);
   flex-shrink: 0;
 }
 
 .delete-dataset-btn:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.25);
   transform: scale(1.1);
 }
 
+/* Scrollbar */
 .dataset-dropdown-menu::-webkit-scrollbar {
   width: 6px;
 }
@@ -142,10 +168,9 @@
 
 .dataset-dropdown-menu::-webkit-scrollbar-thumb {
   background: rgba(64, 224, 208, 0.3);
-  border-radius: 3px;
+  border-radius: var(--radius-full, 9999px);
 }
 
 .dataset-dropdown-menu::-webkit-scrollbar-thumb:hover {
   background: rgba(64, 224, 208, 0.5);
 }
-

@@ -1,155 +1,176 @@
+/* ============================================
+   Header
+   ============================================ */
+
 .header {
-  background: rgba(30, 30, 60, 0.9);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(64, 224, 208, 0.3);
-  padding: 1rem 2rem;
+  background: var(--color-bg-surface, rgba(30, 30, 60, 0.9));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border, rgba(64, 224, 208, 0.2));
+  padding: var(--space-sm, 0.5rem) var(--space-xl, 2rem);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
-  gap: 20px;
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.25);
+  gap: var(--space-md, 1rem);
   overflow: visible;
   position: relative;
-  z-index: 100;
+  z-index: var(--z-dropdown, 100);
+  min-height: 56px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-md, 1rem);
   flex-shrink: 0;
 }
 
 .header h1 {
-  color: #40e0d0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  text-shadow: 0 0 10px rgba(64, 224, 208, 0.5);
+  color: var(--color-primary, #40e0d0);
+  font-size: var(--text-xl, 1.25rem);
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(64, 224, 208, 0.4);
   flex-shrink: 0;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-sm, 0.5rem);
   margin-left: auto;
   overflow: visible;
   position: relative;
 }
 
+/* Upload button */
 .upload-button-header {
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  padding: 0.4rem;
-  border-radius: 4px;
+  padding: 0;
+  border-radius: var(--radius-md, 8px);
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
-  transition: all 0.2s;
-  width: 2rem;
-  height: 2rem;
-  background: linear-gradient(135deg, #40e0d0 0%, #0d9488 100%);
+  transition: all var(--transition-fast, 150ms ease);
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--color-primary, #40e0d0) 0%, var(--color-primary-dark, #0d9488) 100%);
   color: #0f172a;
 }
 
 .upload-button-header:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(64, 224, 208, 0.4);
+  box-shadow: 0 4px 12px var(--color-primary-glow, rgba(64, 224, 208, 0.4));
+  filter: brightness(1.1);
 }
 
+.upload-button-header:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
+
+/* View Selector */
 .view-selector-container {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-sm, 0.5rem);
 }
 
 .view-selector-container label {
-  color: rgba(224, 230, 237, 0.9);
-  font-size: 0.9rem;
+  color: var(--color-text-secondary, rgba(224, 230, 237, 0.8));
+  font-size: var(--text-sm, 0.875rem);
   font-weight: 500;
   white-space: nowrap;
 }
 
 .view-selector {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(64, 224, 208, 0.3);
-  border-radius: 6px;
-  color: #e0e6ed;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-border, rgba(64, 224, 208, 0.2));
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-primary, #e0e6ed);
+  padding: 0.45rem 0.85rem;
+  font-size: var(--text-sm, 0.875rem);
   min-width: 150px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast, 150ms ease);
 }
 
 .view-selector:hover {
-  border-color: rgba(64, 224, 208, 0.5);
-  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--color-border-hover, rgba(64, 224, 208, 0.4));
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .view-selector:focus {
   outline: none;
-  border-color: #40e0d0;
-  box-shadow: 0 0 0 2px rgba(64, 224, 208, 0.2);
+  border-color: var(--color-primary, #40e0d0);
+  box-shadow: 0 0 0 3px rgba(64, 224, 208, 0.15);
 }
 
 .view-selector option {
-  background: #1a1a2e;
-  color: #e0e6ed;
+  background: var(--color-bg-elevated, #1a1a2e);
+  color: var(--color-text-primary, #e0e6ed);
 }
 
+/* Run Algorithm Button */
 .run-algorithm-button {
-  background: linear-gradient(135deg, #40e0d0 0%, #0d9488 100%);
+  background: linear-gradient(135deg, var(--color-primary, #40e0d0) 0%, var(--color-primary-dark, #0d9488) 100%);
   color: #0f172a;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--radius-md, 8px);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--text-sm, 0.875rem);
   font-weight: 600;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast, 150ms ease);
   white-space: nowrap;
   min-width: 70px;
+  letter-spacing: 0.01em;
 }
 
 .run-algorithm-button:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(64, 224, 208, 0.4);
+  box-shadow: 0 4px 16px var(--color-primary-glow, rgba(64, 224, 208, 0.4));
+  filter: brightness(1.08);
 }
 
 .run-algorithm-button:active:not(:disabled) {
   transform: translateY(0);
+  filter: brightness(0.95);
 }
 
 .run-algorithm-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  filter: none;
 }
 
+/* Parameters Button */
 .parameters-button {
-  background: rgba(67, 250, 236, 0.1);
-  border: 1px solid rgba(67, 250, 236, 0.3);
-  color: #43faec;
-  padding: 0.5rem;
-  border-radius: 6px;
+  background: var(--color-primary-subtle, rgba(64, 224, 208, 0.08));
+  border: 1px solid var(--color-border, rgba(64, 224, 208, 0.2));
+  color: var(--color-primary, #40e0d0);
+  padding: 0;
+  border-radius: var(--radius-md, 8px);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast, 150ms ease);
   width: 36px;
   height: 36px;
 }
 
 .parameters-button:hover {
-  background: rgba(67, 250, 236, 0.2);
-  border-color: rgba(67, 250, 236, 0.5);
+  background: var(--color-primary-muted, rgba(64, 224, 208, 0.15));
+  border-color: var(--color-border-hover, rgba(64, 224, 208, 0.4));
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(67, 250, 236, 0.3);
+  box-shadow: 0 4px 12px rgba(64, 224, 208, 0.2);
 }
 
 .parameters-button:active {
@@ -164,30 +185,31 @@
 .widget-bank-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm, 0.5rem);
   padding: 8px 14px;
-  background: linear-gradient(135deg, rgba(64, 224, 208, 0.15) 0%, rgba(64, 224, 208, 0.05) 100%);
-  border: 1px solid rgba(64, 224, 208, 0.3);
-  border-radius: 8px;
-  color: #e0e6ed;
+  background: linear-gradient(135deg, rgba(64, 224, 208, 0.1) 0%, rgba(64, 224, 208, 0.03) 100%);
+  border: 1px solid var(--color-border, rgba(64, 224, 208, 0.2));
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-primary, #e0e6ed);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--text-sm, 0.875rem);
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast, 150ms ease);
   white-space: nowrap;
 }
 
 .widget-bank-toggle:hover {
-  background: linear-gradient(135deg, rgba(64, 224, 208, 0.25) 0%, rgba(64, 224, 208, 0.1) 100%);
-  border-color: rgba(64, 224, 208, 0.5);
+  background: linear-gradient(135deg, rgba(64, 224, 208, 0.2) 0%, rgba(64, 224, 208, 0.08) 100%);
+  border-color: var(--color-border-hover, rgba(64, 224, 208, 0.4));
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(64, 224, 208, 0.2);
+  box-shadow: 0 4px 12px rgba(64, 224, 208, 0.15);
 }
 
 .widget-bank-toggle.active {
-  background: linear-gradient(135deg, rgba(64, 224, 208, 0.3) 0%, rgba(64, 224, 208, 0.15) 100%);
-  border-color: #40e0d0;
-  color: #40e0d0;
+  background: linear-gradient(135deg, rgba(64, 224, 208, 0.25) 0%, rgba(64, 224, 208, 0.12) 100%);
+  border-color: var(--color-primary, #40e0d0);
+  color: var(--color-primary, #40e0d0);
+  box-shadow: 0 0 12px rgba(64, 224, 208, 0.15);
 }
 
 .widget-bank-icon {
@@ -201,10 +223,9 @@
 .widget-bank-arrow {
   font-size: 0.7rem;
   opacity: 0.7;
-  transition: transform 0.2s ease;
+  transition: transform var(--transition-base, 200ms ease);
 }
 
 .widget-bank-arrow.open {
   transform: rotate(180deg);
 }
-

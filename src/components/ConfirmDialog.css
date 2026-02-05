@@ -1,74 +1,109 @@
-.confirm-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    backdrop-filter: blur(4px);
-}
-  
-.confirm-dialog {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    border-radius: 12px;
-    padding: 24px;
-    width: 90%;
-    max-width: 400px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(64, 224, 208, 0.2);
-}
-  
-.confirm-title {
-    margin: 0 0 12px 0;
-    color: #40e0d0;
-    font-size: 20px;
-    font-weight: 600;
-}
-  
-  .confirm-message {
-    margin: 0 0 24px 0;
-    color: #e2e8f0;
-    font-size: 14px;
-    line-height: 1.5;
-  }
+/* ============================================
+   Confirm Dialog
+   ============================================ */
 
-  .confirm-buttons {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
+.confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-bg-overlay, rgba(0, 0, 0, 0.7));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: var(--z-modal, 1000);
+  backdrop-filter: blur(6px);
+  animation: overlayFadeIn 200ms ease;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.confirm-dialog {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-lg, 1.5rem);
+  width: 90%;
+  max-width: 420px;
+  box-shadow: var(--shadow-xl, 0 20px 60px rgba(0, 0, 0, 0.5));
+  border: 1px solid var(--color-border, rgba(64, 224, 208, 0.2));
+  animation: dialogEnter 250ms var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  transform-origin: center;
+}
+
+@keyframes dialogEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
   }
-  
-  .confirm-btn {
-    padding: 8px 20px;
-    border-radius: 6px;
-    border: none;
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
-  
-  .confirm-cancel {
-    background: rgba(148, 163, 184, 0.2);
-    color: #e2e8f0;
-    border: 1px solid rgba(148, 163, 184, 0.3);
-  }
-  
-  .confirm-cancel:hover {
-    background: rgba(148, 163, 184, 0.3);
-  }
-  
-  .confirm-delete {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-    color: #fff;
-  }
-  
-  .confirm-delete:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-  }
-  
+}
+
+.confirm-title {
+  margin: 0 0 var(--space-sm, 0.5rem) 0;
+  color: var(--color-primary, #40e0d0);
+  font-size: var(--text-xl, 1.25rem);
+  font-weight: 600;
+  line-height: var(--leading-tight, 1.25);
+}
+
+.confirm-message {
+  margin: 0 0 var(--space-lg, 1.5rem) 0;
+  color: var(--color-text-secondary, rgba(224, 230, 237, 0.7));
+  font-size: var(--text-sm, 0.875rem);
+  line-height: var(--leading-normal, 1.5);
+}
+
+.confirm-buttons {
+  display: flex;
+  gap: var(--space-sm, 0.5rem);
+  justify-content: flex-end;
+}
+
+.confirm-btn {
+  padding: 10px 20px;
+  border-radius: var(--radius-md, 8px);
+  border: none;
+  font-weight: 600;
+  font-size: var(--text-sm, 0.875rem);
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+  letter-spacing: 0.01em;
+}
+
+.confirm-cancel {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--color-text-primary, #e2e8f0);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.confirm-cancel:hover {
+  background: rgba(148, 163, 184, 0.25);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.confirm-cancel:active {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+.confirm-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+}
+
+.confirm-delete:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+  filter: brightness(1.08);
+}
+
+.confirm-delete:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}

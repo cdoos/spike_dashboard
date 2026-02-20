@@ -11,11 +11,15 @@ import tempfile
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-import torch
 
 from app.config import Config
 from app.services.dataset_manager import DatasetManager
 from app.logger import get_logger
+
+try:
+    import torch
+except ImportError:
+    torch = None
 
 logger = get_logger(__name__)
 
@@ -41,61 +45,95 @@ except ImportError as e:
 
 
 class ClusteringManager:
-    """Manages clustering and spike sorting operations."""
+    """Manages clustering and spike sorting operations.
     
-    def __init__(self, config: Config, dataset_manager: DatasetManager):
+    Supports two execution modes:
+      - local: algorithms run in-process (gpu_backend is None)
+      - cloud_run: algorithms are offloaded via gpu_backend
+    """
+    
+    def __init__(self, config: Config, dataset_manager: DatasetManager, gpu_backend=None):
         self.config = config
         self.dataset_manager = dataset_manager
         self.clustering_results: Optional[List[List[Dict]]] = None
+        self.gpu_backend = gpu_backend  # None → local execution
     
     @staticmethod
     def is_jims_available() -> bool:
-        """Check if JimsAlgorithm is available."""
+        """Check if JimsAlgorithm is available locally."""
         return JIMS_AVAILABLE
     
     @staticmethod
     def is_kilosort4_available() -> bool:
-        """Check if Kilosort4 is available."""
+        """Check if Kilosort4 is available locally."""
         return KILOSORT4_AVAILABLE
+    
+    def check_algorithm_available(self, algorithm: str) -> bool:
+        """Check availability accounting for GPU backend mode.
+        
+        In cloud_run mode, algorithms are always available (the worker has them).
+        In local mode, checks the local imports.
+        """
+        if self.gpu_backend is not None:
+            return True
+        if algorithm in ('jims', 'torchbci_jims'):
+            return JIMS_AVAILABLE
+        if algorithm == 'kilosort4':
+            return KILOSORT4_AVAILABLE
+        return False
     
     def run_jims_algorithm(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Run JimsAlgorithm spike sorting."""
-        if not JIMS_AVAILABLE:
-            raise RuntimeError('TorchBCI not available')
-        
         if self.dataset_manager.data_array is None:
             raise RuntimeError('No dataset loaded')
         
         logger.info("Running JimsAlgorithm")
         logger.info(f"Data Shape: {self.dataset_manager.data_array.shape}")
-        
-        data_tensor = self._prepare_tensor()
-        jims_sort_pipe = self._create_jims_pipeline(params)
-        
-        logger.info("Running jims_sort_pipe.forward(data_tensor)...")
-        clusters, centroids, clusters_meta = jims_sort_pipe.forward(data_tensor)
-        
-        n_clustered_spikes = sum([len(meta) for meta in clusters_meta])
-        logger.info(f"JimsAlgorithm Results: {len(clusters)} clusters, {n_clustered_spikes} spikes")
-        
-        self._store_clustering_results(clusters, centroids, clusters_meta)
+
+        # ----- Remote execution (Cloud Run GPU) -----
+        if self.gpu_backend is not None:
+            result = self.gpu_backend.run_algorithm(
+                algorithm='jims',
+                data=np.asarray(self.dataset_manager.data_array),
+                params=params,
+            )
+            self.clustering_results = result['clustering_results']
+            data_shape = result.get('data_shape', list(self.dataset_manager.data_array.shape))
+        else:
+            # ----- Local execution -----
+            if not JIMS_AVAILABLE:
+                raise RuntimeError('TorchBCI not available')
+            
+            data_tensor = self._prepare_tensor()
+            jims_sort_pipe = self._create_jims_pipeline(params)
+            
+            logger.info("Running jims_sort_pipe.forward(data_tensor)...")
+            clusters, centroids, clusters_meta = jims_sort_pipe.forward(data_tensor)
+            
+            n_clustered_spikes = sum([len(meta) for meta in clusters_meta])
+            logger.info(f"JimsAlgorithm Results: {len(clusters)} clusters, {n_clustered_spikes} spikes")
+            
+            self._store_clustering_results(clusters, centroids, clusters_meta)
+            data_shape = list(data_tensor.shape)
+
+        # Common: save results and build response
         self._save_torchbci_results_to_file()
 
+        n_spikes = sum(len(c) for c in self.clustering_results)
         response = {
             'success': True,
-            'dataShape': list(data_tensor.shape),
-            'numClusters': len(clusters),
-            'numSpikes': n_clustered_spikes,
+            'dataShape': data_shape,
+            'numClusters': len(self.clustering_results),
+            'numSpikes': n_spikes,
             'clusters': []
         }
         
-        for i, (cluster, centroid, meta) in enumerate(zip(clusters, centroids, clusters_meta)):
+        for i, cluster_data in enumerate(self.clustering_results):
             cluster_info = {
                 'clusterId': i,
-                'numSpikes': len(meta),
-                'centroidShape': list(centroid.shape),
-                'spikeTimes': [int(m[1]) for m in meta] if len(meta) > 0 else [],
-                'spikeChannels': [int(m[0]) for m in meta] if len(meta) > 0 else []
+                'numSpikes': len(cluster_data),
+                'spikeTimes': [s['time'] for s in cluster_data],
+                'spikeChannels': [s['channel'] for s in cluster_data]
             }
             response['clusters'].append(cluster_info)
         
@@ -130,85 +168,103 @@ class ClusteringManager:
     
     def run_kilosort4(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Run Kilosort4 spike sorting."""
-        if not KILOSORT4_AVAILABLE:
-            raise RuntimeError('Kilosort4 not available')
-
         if self.dataset_manager.data_array is None:
             raise RuntimeError('No dataset loaded')
 
         logger.info("Running Kilosort4")
         logger.info(f"Data Shape: {self.dataset_manager.data_array.shape}")
 
-        # Get parameters
-        probe_path = params.get('probe_path', self.config.DEFAULT_PROBE_PATH)
-        sampling_rate = params.get('sampling_rate', self.config.SAMPLING_RATE)
-
-        # Prepare data - Kilosort4 expects (n_samples, n_channels)
-        data = np.asarray(self.dataset_manager.data_array)
-        if data.shape[0] < data.shape[1]:
-            data = data.T
-
-        logger.info(f"Transposed data shape for Kilosort4: {data.shape}")
-
-        # Save to temporary binary file
-        temp_bin = tempfile.NamedTemporaryFile(delete=False, suffix='.bin')
-        data_c = np.ascontiguousarray(data)
-        data_c.tofile(temp_bin.name)
-        temp_bin.close()
-
-        logger.debug(f"Saved temporary binary file: {temp_bin.name}")
-
-        settings = {
-            "n_chan_bin": data.shape[1],
-            "fs": sampling_rate,
-            "filename": temp_bin.name,
-            "batch_size": 60000,
-            "nblocks": 1
-        }
-
-        probe = load_probe(probe_path)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"Using device: {device}")
-
-        original_cwd = os.getcwd()
-        temp_results_dir = tempfile.mkdtemp(prefix='kilosort4_')
-
-        try:
-            os.chdir(temp_results_dir)
-            logger.debug(f"Running in temporary directory: {temp_results_dir}")
-
-            pipeline = KS4Pipeline(
-                settings=settings,
-                probe=probe,
-                results_dir=temp_results_dir,
-                device=device
+        # ----- Remote execution (Cloud Run GPU) -----
+        if self.gpu_backend is not None:
+            dataset_info = {
+                'probe_path': self.config.DEFAULT_PROBE_PATH,
+                'sampling_rate': self.config.SAMPLING_RATE,
+            }
+            result = self.gpu_backend.run_algorithm(
+                algorithm='kilosort4',
+                data=np.asarray(self.dataset_manager.data_array),
+                params=params,
+                dataset_info=dataset_info,
             )
+            self.clustering_results = result['clustering_results']
+            data_shape = result.get('data_shape', list(self.dataset_manager.data_array.shape))
+        else:
+            # ----- Local execution -----
+            if not KILOSORT4_AVAILABLE:
+                raise RuntimeError('Kilosort4 not available')
 
-            logger.info("Running Kilosort4 pipeline...")
-            with torch.no_grad():
-                out = pipeline()
-        finally:
-            os.chdir(original_cwd)
+            # Get parameters
+            probe_path = params.get('probe_path', self.config.DEFAULT_PROBE_PATH)
+            sampling_rate = params.get('sampling_rate', self.config.SAMPLING_RATE)
+
+            # Prepare data - Kilosort4 expects (n_samples, n_channels)
+            data = np.asarray(self.dataset_manager.data_array)
+            if data.shape[0] < data.shape[1]:
+                data = data.T
+
+            logger.info(f"Transposed data shape for Kilosort4: {data.shape}")
+
+            # Save to temporary binary file
+            temp_bin = tempfile.NamedTemporaryFile(delete=False, suffix='.bin')
+            data_c = np.ascontiguousarray(data)
+            data_c.tofile(temp_bin.name)
+            temp_bin.close()
+
+            logger.debug(f"Saved temporary binary file: {temp_bin.name}")
+
+            settings = {
+                "n_chan_bin": data.shape[1],
+                "fs": sampling_rate,
+                "filename": temp_bin.name,
+                "batch_size": 60000,
+                "nblocks": 1
+            }
+
+            probe = load_probe(probe_path)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            logger.info(f"Using device: {device}")
+
+            original_cwd = os.getcwd()
+            temp_results_dir = tempfile.mkdtemp(prefix='kilosort4_')
+
             try:
-                shutil.rmtree(temp_results_dir)
+                os.chdir(temp_results_dir)
+                logger.debug(f"Running in temporary directory: {temp_results_dir}")
+
+                pipeline = KS4Pipeline(
+                    settings=settings,
+                    probe=probe,
+                    results_dir=temp_results_dir,
+                    device=device
+                )
+
+                logger.info("Running Kilosort4 pipeline...")
+                with torch.no_grad():
+                    out = pipeline()
+            finally:
+                os.chdir(original_cwd)
+                try:
+                    shutil.rmtree(temp_results_dir)
+                except Exception:
+                    pass
+
+            spike_times_samples = out["st"][:, 0]
+            spike_clusters = out["clu"]
+
+            logger.info(f"Kilosort4 Results: {np.unique(spike_clusters).size} clusters, {out['st'].shape[0]} spikes")
+
+            self._store_kilosort4_results(spike_times_samples, spike_clusters, out)
+            data_shape = list(data.shape)
+
+            try:
+                os.unlink(temp_bin.name)
             except Exception:
                 pass
 
-        spike_times_samples = out["st"][:, 0]
-        spike_clusters = out["clu"]
-        n_spikes = out["st"].shape[0]
-        n_clusters = np.unique(spike_clusters).size
-
-        logger.info(f"Kilosort4 Results: {n_clusters} clusters, {n_spikes} spikes")
-
-        self._store_kilosort4_results(spike_times_samples, spike_clusters, out)
+        # Common: save results and build response
         self._save_kilosort4_results_to_file()
 
-        try:
-            os.unlink(temp_bin.name)
-        except Exception:
-            pass
-
+        n_spikes = sum(len(c) for c in self.clustering_results)
         cluster_summaries = []
         for cluster_idx, cluster_data in enumerate(self.clustering_results):
             cluster_summaries.append({
@@ -223,12 +279,12 @@ class ClusteringManager:
 
         response = {
             'success': True,
-            'dataShape': list(data.shape),
-            'numClusters': int(n_clusters),
-            'numSpikes': int(n_spikes),
+            'dataShape': data_shape,
+            'numClusters': len(self.clustering_results),
+            'numSpikes': n_spikes,
             'clusters': cluster_summaries,
             'available': True,
-            'totalSpikes': int(n_spikes),
+            'totalSpikes': n_spikes,
             'fullData': self.clustering_results
         }
 

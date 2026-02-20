@@ -22,6 +22,7 @@ from app.services import (
     SpikeDataProcessor,
     ClusteringManager
 )
+from app.services.gpu_backend import create_gpu_backend
 
 logger = get_logger(__name__)
 
@@ -95,7 +96,10 @@ def _init_services(app: Flask, config: Config) -> None:
     mapping_manager = LabelMappingManager(config)
     spike_times_manager = SpikeTimesManager(config, mapping_manager)
     spike_data_processor = SpikeDataProcessor(dataset_manager, spike_times_manager)
-    clustering_manager = ClusteringManager(config, dataset_manager)
+    
+    # GPU backend: None for local mode, CloudRunGPUBackend for cloud_run mode
+    gpu_backend = create_gpu_backend(config)
+    clustering_manager = ClusteringManager(config, dataset_manager, gpu_backend=gpu_backend)
     
     # Store in app config for access in routes
     app.config['dataset_manager'] = dataset_manager

@@ -1,0 +1,18 @@
+# GPU Worker dependencies
+# Note: torch, torchaudio, numpy, CUDA are provided by the base image (pytorch/pytorch)
+
+# Web server
+flask>=3.0
+gunicorn>=22.0
+
+# GCS for data transfer
+google-cloud-storage>=2.14
+
+# Scientific computing (used by algorithm runners)
+scikit-learn>=1.3
+scipy>=1.15
+
+# Used by torchbci
+torchaudio
+faiss-cpu>=1.9
+numba

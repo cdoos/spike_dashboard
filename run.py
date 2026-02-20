@@ -17,6 +17,9 @@ Environment Variables:
     LOG_LEVEL       - Logging level (default: INFO)
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from app import create_app, run_app
 from app.config import get_config
 

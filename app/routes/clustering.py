@@ -9,7 +9,6 @@ from flask import Blueprint, request, jsonify, current_app
 
 from app.logger import get_logger
 from app.services.filter_processor import FilterProcessor
-from app.services.clustering_manager import ClusteringManager
 from app.utils.responses import server_error, validation_error, not_found_error
 
 logger = get_logger(__name__)
@@ -338,14 +337,14 @@ def list_spike_sorting_algorithms():
             'name': 'torchbci_jims',
             'displayName': 'TorchBCI Algorithm',
             'description': "Jim's spike sorting algorithm with clustering",
-            'available': ClusteringManager.is_jims_available(),
+            'available': clustering_manager.check_algorithm_available('torchbci_jims'),
             'requiresRun': True
         },
         {
             'name': 'kilosort4',
             'displayName': 'Kilosort4',
             'description': 'State-of-the-art spike sorting with Kilosort4',
-            'available': ClusteringManager.is_kilosort4_available(),
+            'available': clustering_manager.check_algorithm_available('kilosort4'),
             'requiresRun': True
         }
     ]

@@ -89,6 +89,22 @@ class Config:
         default_factory=lambda: os.getenv('DEFAULT_PROBE_PATH', 'torchbci/data/NeuroPix1_default.mat')
     )
     
+    # GPU execution settings
+    # 'local'     — algorithms run in-process (default, for local/GPU deployments)
+    # 'cloud_run' — algorithms are offloaded to a Cloud Run service with L4 GPU
+    GPU_EXECUTION_MODE: str = field(
+        default_factory=lambda: os.getenv('GPU_EXECUTION_MODE', 'local')
+    )
+    GPU_WORKER_URL: str = field(
+        default_factory=lambda: os.getenv('GPU_WORKER_URL', '')
+    )
+    GCS_BUCKET: str = field(
+        default_factory=lambda: os.getenv('GCS_BUCKET', '')
+    )
+    GCP_PROJECT: str = field(
+        default_factory=lambda: os.getenv('GCP_PROJECT', '')
+    )
+    
     def __post_init__(self):
         """Validate configuration after initialization."""
         if self.PORT < 1 or self.PORT > 65535:
